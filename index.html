@@ -133,6 +133,61 @@ body {
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
+/* ---- ソートボタン ---- */
+.sort-wrap {
+  position: relative;
+}
+.sort-btn {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: var(--font-main);
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.sort-btn:hover { border-color: var(--accent-mid); color: var(--accent); }
+.sort-btn.active { border-color: var(--accent-mid); color: var(--accent); background: var(--tag-bg); }
+.sort-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  overflow: hidden;
+  z-index: 100;
+  min-width: 180px;
+  display: none;
+}
+.sort-dropdown.open { display: block; }
+.sort-option {
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  font-size: 12px;
+  font-family: var(--font-main);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: background 0.1s;
+}
+.sort-option:hover { background: var(--bg); }
+.sort-option.active { color: var(--accent); font-weight: 500; }
+.sort-option.active::after { content: "✓"; font-size: 11px; }
+
 /* ---- Tag filters ---- */
 .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .filter-tag {
@@ -356,7 +411,21 @@ body {
 <div class="controls">
   <div class="controls-row">
     <input class="search-input" type="text" id="searchInput" placeholder="名前・キーワードで検索…" oninput="applyFilters()">
-    <div class="tab-bar">
+
+    <!-- ソートボタン -->
+    <div class="sort-wrap" id="sortWrap">
+      <button class="sort-btn" id="sortBtn" onclick="toggleSortDropdown()">
+        ↕ 並び替え
+      </button>
+      <div class="sort-dropdown" id="sortDropdown">
+        <button class="sort-option active" id="sort-joined-asc"  onclick="setSort('joined','asc')">入会順（古い順）</button>
+        <button class="sort-option"        id="sort-joined-desc" onclick="setSort('joined','desc')">入会順（新しい順）</button>
+        <button class="sort-option"        id="sort-tanq-asc"   onclick="setSort('tanq','asc')">探究ネーム（あ→ん）</button>
+        <button class="sort-option"        id="sort-tanq-desc"  onclick="setSort('tanq','desc')">探究ネーム（ん→あ）</button>
+      </div>
+    </div>
+
+     <div class="tab-bar">
       <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">▦ カード</button>
       <button class="tab-btn" id="tabMap" onclick="switchTab('map')">◎ マップ</button>
     </div>
@@ -419,17 +488,18 @@ const COL = {
   hobby:    8,  // 趣味・特技・好きなこと
   tankyuu:  9,  // 探究したいこと・やってみたいこと
   msg:      10, // 皆へ一言
-  tags:     11, // タグ（カンマ区切り）
+  tags:     11, // タグ（「・」区切り）
   photo:    12, // 写真URL
 };
 
 let allMembers = [];
 let activeTag = "すべて";
 let filteredMembers = [];
+let sortKey = "joined";
+let sortDir = "asc";
 
 // ---- データ取得 ----
 async function fetchData() {
-  // offset=1 でヘッダー行（1行目）をスキップして2行目からデータを取得
   const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&headers=1`;
   try {
     const res = await fetch(url);
@@ -439,9 +509,7 @@ async function fetchData() {
     allMembers = rows.map(row => {
       const c = row.c;
       const get = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
-      // Googleドライブの共有URLを画像表示用URLに自動変換
       const rawPhoto = get(COL.photo);
-      const photo = convertDriveUrl(rawPhoto);
       return {
         joined:   get(COL.joined),
         name:     get(COL.name),
@@ -455,7 +523,7 @@ async function fetchData() {
         tankyuu:  get(COL.tankyuu),
         msg:      get(COL.msg),
         tags:     get(COL.tags).split("・").map(t=>t.trim()).filter(Boolean),
-        photo:    photo,
+        photo:    convertDriveUrl(rawPhoto),
       };
     }).filter(m => m.name);
     buildTagFilters();
@@ -466,19 +534,28 @@ async function fetchData() {
     document.getElementById("headerCount").textContent = "エラー";
   }
 }
-
+ 
 // ---- GoogleドライブURLを画像表示用に自動変換 ----
 function convertDriveUrl(url) {
   if (!url) return "";
-  // 共有URL形式: https://drive.google.com/file/d/FILE_ID/view?...
   const match = url.match(/\/file\/d\/([^/]+)/);
-  if (match) {
-    return `https://lh3.googleusercontent.com/d/${match[1]}`;
-  }
-  // すでに変換済み or 別のURL形式はそのまま返す
+  if (match) return `https://lh3.googleusercontent.com/d/${match[1]}`;
   return url;
 }
 
+// ---- 日付フォーマット ----
+function formatDate(val) {
+  if (!val) return "";
+  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if (match) {
+    const y = match[1];
+    const m = String(Number(match[2]) + 1).padStart(2, "0");
+    const d = String(match[3]).padStart(2, "0");
+    return `${y}年${m}月${d}日`;
+  }
+  return val;
+}
+ 
 // ---- タグフィルター構築 ----
 function buildTagFilters() {
   const allTags = [...new Set(allMembers.flatMap(m => m.tags))].sort();
@@ -492,15 +569,49 @@ function buildTagFilters() {
     row.appendChild(btn);
   });
 }
-
+ 
 function selectTag(el, tag) {
   document.querySelectorAll(".filter-tag").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
   activeTag = tag;
   applyFilters();
 }
-
-// ---- フィルター適用 ----
+ 
+// ---- ソート ----
+function toggleSortDropdown() {
+  document.getElementById("sortDropdown").classList.toggle("open");
+}
+ 
+function setSort(key, dir) {
+  sortKey = key;
+  sortDir = dir;
+  // ボタンのactive状態を更新
+  document.querySelectorAll(".sort-option").forEach(b => b.classList.remove("active"));
+  document.getElementById(`sort-${key}-${dir}`).classList.add("active");
+  // ボタンのラベルを更新
+  const labels = {
+    "joined-asc":  "入会順（古い順）",
+    "joined-desc": "入会順（新しい順）",
+    "tanq-asc":    "探究ネーム（あ→ん）",
+    "tanq-desc":   "探究ネーム（ん→あ）",
+  };
+  document.getElementById("sortBtn").innerHTML = `↕ ${labels[key+"-"+dir]}`;
+  document.getElementById("sortBtn").classList.add("active");
+  document.getElementById("sortDropdown").classList.remove("open");
+  applyFilters();
+}
+ 
+function sortMembers(arr) {
+  return [...arr].sort((a, b) => {
+    let va = a[sortKey] || "";
+    let vb = b[sortKey] || "";
+    // 入会日はDate(...)形式なので文字列比較でも日付順になる
+    const cmp = va.localeCompare(vb, "ja");
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+}
+ 
+// ---- フィルター＆ソート適用 ----
 function applyFilters() {
   const q = document.getElementById("searchInput").value.toLowerCase();
   filteredMembers = allMembers.filter(m => {
@@ -508,10 +619,11 @@ function applyFilters() {
     const matchSearch = !q || m.name.includes(q) || m.tanq.includes(q) || m.tags.some(t=>t.includes(q)) || m.work.includes(q) || m.hobby.includes(q);
     return matchTag && matchSearch;
   });
+  filteredMembers = sortMembers(filteredMembers);
   renderCards();
   renderMap();
 }
-
+ 
 // ---- アバター生成 ----
 function makeAvatar(m, cls="") {
   const div = document.createElement("div");
@@ -527,21 +639,9 @@ function makeAvatar(m, cls="") {
   }
   return div;
 }
-
+ 
 function initials(name) { return name.replace(/\s/g,"").slice(0,2); }
-function formatDate(val) {
-  if (!val) return "";
-  // Date(YYYY,M,D) 形式をパース（月は0始まりなので+1）
-  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
-  if (match) {
-    const y = match[1];
-    const m = String(Number(match[2]) + 1).padStart(2, "0");
-    const d = String(match[3]).padStart(2, "0");
-    return `${y}年${m}月${d}日`;
-  }
-  return val;
-}
-
+ 
 // ---- カード表示 ----
 function renderCards() {
   const grid = document.getElementById("cardGrid");
@@ -566,38 +666,33 @@ function renderCards() {
     grid.appendChild(card);
   });
 }
-
+ 
 // ---- マップ表示 ----
 let mapScale = 1, mapPanX = 0, mapPanY = 0;
 let mapDragging = false, mapLastX = 0, mapLastY = 0;
-// マップのキャンバスサイズを広げてノード間の距離を確保
 const MAP_W = 1800, MAP_H = 1400;
-
+ 
 function seededRandom(seed) {
   let s = seed;
   return function() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
 }
-
+ 
 function renderMap() {
   const canvas = document.getElementById("mapCanvas");
   canvas.innerHTML = "";
   canvas.style.width = MAP_W + "px";
   canvas.style.height = MAP_H + "px";
-
   filteredMembers.forEach((m, i) => {
     const rng = seededRandom(i * 7919 + 31337);
     const angle = rng() * Math.PI * 2;
-    // 最小距離を広げ、ばらつきも大きくする
     const r = 150 + rng() * 550;
     const x = Math.round(MAP_W/2 + Math.cos(angle) * r);
     const y = Math.round(MAP_H/2 + Math.sin(angle) * r);
-
     const node = document.createElement("div");
     node.className = "map-node";
     node.style.left = x + "px";
     node.style.top = y + "px";
     node.onclick = e => { e.stopPropagation(); openPopup(m); };
-
     node.appendChild(makeAvatar(m));
     const nameEl = document.createElement("div");
     nameEl.className = "map-node-name";
@@ -611,22 +706,20 @@ function renderMap() {
     }
     canvas.appendChild(node);
   });
-
   document.getElementById("mapCount").textContent = filteredMembers.length + "名";
-  // マップ初期表示を中央に合わせる
   const wrap = document.getElementById("mapWrap");
   mapScale = 0.5;
   mapPanX = (wrap.offsetWidth - MAP_W * mapScale) / 2;
   mapPanY = (wrap.offsetHeight - MAP_H * mapScale) / 2;
   applyMapTransform();
 }
-
+ 
 function applyMapTransform() {
   document.getElementById("mapCanvas").style.transform = `translate(${mapPanX}px,${mapPanY}px) scale(${mapScale})`;
 }
 function zoomIn()  { mapScale = Math.min(mapScale * 1.2, 3);  applyMapTransform(); }
 function zoomOut() { mapScale = Math.max(mapScale / 1.2, 0.2); applyMapTransform(); }
-
+ 
 const mapWrap = document.getElementById("mapWrap");
 mapWrap.addEventListener("wheel", e => {
   e.preventDefault();
@@ -639,7 +732,6 @@ mapWrap.addEventListener("wheel", e => {
   mapScale = ns;
   applyMapTransform();
 }, { passive: false });
-
 mapWrap.addEventListener("mousedown", e => { mapDragging=true; mapLastX=e.clientX; mapLastY=e.clientY; });
 window.addEventListener("mouseup", () => { mapDragging=false; });
 window.addEventListener("mousemove", e => {
@@ -656,7 +748,7 @@ mapWrap.addEventListener("touchmove", e => {
   mapLastX = e.touches[0].clientX; mapLastY = e.touches[0].clientY;
   applyMapTransform();
 },{passive:true});
-
+ 
 // ---- タブ切り替え ----
 function switchTab(tab) {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -664,7 +756,14 @@ function switchTab(tab) {
   document.getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
   document.getElementById("view" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
 }
-
+ 
+// ---- ドロップダウンを外クリックで閉じる ----
+document.addEventListener("click", e => {
+  if (!document.getElementById("sortWrap").contains(e.target)) {
+    document.getElementById("sortDropdown").classList.remove("open");
+  }
+});
+ 
 // ---- ポップアップ ----
 function openPopup(m) {
   const pAvatar = document.getElementById("pAvatar");
@@ -686,9 +785,10 @@ function openPopup(m) {
 }
 function closePopup() { document.getElementById("overlay").classList.remove("show"); }
 function handleOverlayClick(e) { if(e.target===document.getElementById("overlay")) closePopup(); }
-
+ 
 // ---- 起動 ----
 fetchData();
 </script>
 </body>
 </html>
+ 
