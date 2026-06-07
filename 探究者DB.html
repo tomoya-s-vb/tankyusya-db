@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>探究者DB</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ★ 設定エリア — ここだけ編集すればOK
+   ============================================================ */
+:root {
+  --SPREADSHEET_ID: "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
+  --SHEET_NAME: "探究者DB"; /* シート名を変えた場合はここも変更 */
+}
+/* ============================================================
+   設定エリアここまで
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --border: #E2DED6;
+  --border-strong: #C8C4BC;
+  --text: #1A1814;
+  --text-muted: #6B6860;
+  --accent: #4A3F8C;
+  --accent-light: #EEEDFe;
+  --accent-mid: #AFA9EC;
+  --tag-bg: #EEEDFE;
+  --tag-text: #3C3489;
+  --font-main: 'Noto Sans JP', sans-serif;
+  --font-display: 'Zen Kaku Gothic New', sans-serif;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+}
+
+body {
+  font-family: var(--font-main);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ---- Header ---- */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.header-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+.header-count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ---- Controls ---- */
+.controls {
+  padding: 1.25rem 2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.search-input {
+  flex: 1;
+  min-width: 200px;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  font-size: 13px;
+  font-family: var(--font-main);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.search-input:focus { border-color: var(--accent); }
+
+/* ---- Tab switcher ---- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+}
+.tab-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: var(--font-main);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.tab-btn.active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ---- Tag filters ---- */
+.tag-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.filter-tag {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-family: var(--font-main);
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+.filter-tag:hover { border-color: var(--accent-mid); color: var(--accent); }
+.filter-tag.active { background: var(--tag-bg); border-color: var(--accent-mid); color: var(--tag-text); font-weight: 500; }
+
+/* ---- Views ---- */
+.view { display: none; padding: 1.25rem 2rem 2rem; }
+.view.active { display: block; }
+
+/* ---- Card Grid ---- */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.member-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.member-card:hover { border-color: var(--accent-mid); transform: translateY(-2px); }
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--accent-light);
+  border: 2px solid var(--accent-mid);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.card-name { font-size: 13px; font-weight: 500; color: var(--text); text-align: center; }
+.card-tanq { font-size: 11px; color: var(--text-muted); text-align: center; }
+.card-tags { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.mini-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--tag-bg);
+  color: var(--tag-text);
+}
+
+/* ---- Map View ---- */
+.map-wrap {
+  width: 100%;
+  height: calc(100vh - 220px);
+  min-height: 400px;
+  background: #EDEAE3;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  position: relative;
+  cursor: grab;
+  user-select: none;
+}
+.map-wrap:active { cursor: grabbing; }
+.map-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.map-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+.map-node .avatar { width: 52px; height: 52px; font-size: 16px; transition: transform 0.15s, border-color 0.15s; }
+.map-node:hover .avatar { transform: scale(1.12); border-color: var(--accent); }
+.map-node-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  background: rgba(255,255,255,0.88);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+.map-node-tags { display: flex; gap: 3px; }
+.map-node-tag { font-size: 9px; padding: 1px 5px; border-radius: var(--radius-pill); background: var(--tag-bg); color: var(--tag-text); }
+.zoom-ctrl {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10;
+}
+.zoom-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.zoom-btn:hover { background: var(--bg); }
+.map-hint {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.8);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+.map-count {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.8);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+}
+
+/* ---- Popup ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.overlay.show { opacity: 1; pointer-events: all; }
+.popup {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  width: 340px;
+  max-width: 94vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  position: relative;
+  transform: translateY(8px);
+  transition: transform 0.2s;
+}
+.overlay.show .popup { transform: translateY(0); }
+.popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+}
+.popup-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
+.popup-avatar { width: 52px; height: 52px; font-size: 16px; flex-shrink: 0; }
+.popup-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.popup-tanq { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.popup-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 1rem; }
+.popup-tag { font-size: 11px; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--tag-bg); color: var(--tag-text); }
+.popup-section { margin-bottom: 0.75rem; }
+.popup-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 2px; text-transform: uppercase; }
+.popup-value { font-size: 13px; color: var(--text); line-height: 1.6; }
+.popup-sns { display: flex; gap: 8px; flex-wrap: wrap; }
+.sns-link { font-size: 12px; color: var(--accent); text-decoration: none; border: 1px solid var(--accent-mid); padding: 3px 9px; border-radius: var(--radius-pill); }
+.sns-link:hover { background: var(--tag-bg); }
+
+/* ---- Loading / Empty ---- */
+.state-msg {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 3rem 0;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 600px) {
+  .header { padding: 0 1rem; }
+  .controls { padding: 1rem 1rem 0; }
+  .view { padding: 1rem 1rem 2rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <span class="header-title">探究者DB</span>
+  <span class="header-count" id="headerCount">読み込み中…</span>
+</header>
+
+<div class="controls">
+  <div class="controls-row">
+    <input class="search-input" type="text" id="searchInput" placeholder="名前・キーワードで検索…" oninput="applyFilters()">
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">
+        ▦ カード
+      </button>
+      <button class="tab-btn" id="tabMap" onclick="switchTab('map')">
+        ◎ マップ
+      </button>
+    </div>
+  </div>
+  <div class="tag-row" id="tagRow">
+    <button class="filter-tag active" onclick="selectTag(this,'すべて')">すべて</button>
+  </div>
+</div>
+
+<div class="view active" id="viewCard">
+  <div class="card-grid" id="cardGrid">
+    <div class="state-msg">データを読み込んでいます…</div>
+  </div>
+</div>
+
+<div class="view" id="viewMap">
+  <div class="map-wrap" id="mapWrap">
+    <div class="map-canvas" id="mapCanvas"></div>
+    <div class="map-hint">ドラッグで移動　/　スクロールで拡大縮小</div>
+    <div class="map-count" id="mapCount"></div>
+    <div class="zoom-ctrl">
+      <button class="zoom-btn" onclick="zoomIn()" aria-label="拡大">+</button>
+      <button class="zoom-btn" onclick="zoomOut()" aria-label="縮小">−</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="popup" id="popup">
+    <button class="popup-close" onclick="closePopup()" aria-label="閉じる">×</button>
+    <div class="popup-header">
+      <div class="avatar popup-avatar" id="pAvatar"></div>
+      <div>
+        <div class="popup-name" id="pName"></div>
+        <div class="popup-tanq" id="pTanq"></div>
+      </div>
+    </div>
+    <div class="popup-tags" id="pTags"></div>
+    <div class="popup-section"><div class="popup-label">居住地 / MBTI</div><div class="popup-value" id="pBasic"></div></div>
+    <div class="popup-section"><div class="popup-label">職業・取組</div><div class="popup-value" id="pWork"></div></div>
+    <div class="popup-section"><div class="popup-label">趣味・好きなこと</div><div class="popup-value" id="pHobby"></div></div>
+    <div class="popup-section"><div class="popup-label">探究したいこと</div><div class="popup-value" id="pTankyuu"></div></div>
+    <div class="popup-section"><div class="popup-label">皆へ一言</div><div class="popup-value" id="pMsg"></div></div>
+    <div class="popup-section"><div class="popup-label">SNS</div><div class="popup-sns" id="pSns"></div></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ★ 設定 — SpreadsheetIDをここに貼り付けてください
+   ============================================================ */
+const SPREADSHEET_ID = "★ここにSpreadsheetIDを貼り付けてください★";
+const SHEET_NAME     = "探究者DB"; // シート名を変えたらここも変更
+/* ============================================================ */
+
+// Sheetsの列の順番（ヘッダー行と合わせること）
+const COL = {
+  name:    0,  // 名前
+  tanq:    1,  // 探究ネーム
+  loc:     2,  // 居住地
+  birthday:3,  // 誕生日
+  mbti:    4,  // MBTI
+  sns:     5,  // SNSリンク
+  work:    6,  // 職業・取組紹介
+  hobby:   7,  // 趣味・特技・好きなこと
+  tankyuu: 8,  // 探究したいこと・やってみたいこと
+  msg:     9,  // 皆へ一言
+  tags:    10, // タグ（カンマ区切り）
+  photo:   11, // 写真URL
+};
+
+let allMembers = [];
+let activeTag = "すべて";
+let filteredMembers = [];
+
+// ---- データ取得 ----
+async function fetchData() {
+  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+    const rows = json.table.rows;
+    allMembers = rows.map(row => {
+      const c = row.c;
+      const get = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
+      return {
+        name:    get(COL.name),
+        tanq:    get(COL.tanq),
+        loc:     get(COL.loc),
+        birthday:get(COL.birthday),
+        mbti:    get(COL.mbti),
+        sns:     get(COL.sns),
+        work:    get(COL.work),
+        hobby:   get(COL.hobby),
+        tankyuu: get(COL.tankyuu),
+        msg:     get(COL.msg),
+        tags:    get(COL.tags).split(",").map(t=>t.trim()).filter(Boolean),
+        photo:   get(COL.photo),
+      };
+    }).filter(m => m.name);
+    buildTagFilters();
+    applyFilters();
+    document.getElementById("headerCount").textContent = allMembers.length + "名";
+  } catch(e) {
+    document.getElementById("cardGrid").innerHTML = '<div class="state-msg">データの読み込みに失敗しました。<br>SpreadsheetIDと共有設定を確認してください。</div>';
+    document.getElementById("headerCount").textContent = "エラー";
+  }
+}
+
+// ---- タグフィルター構築 ----
+function buildTagFilters() {
+  const allTags = [...new Set(allMembers.flatMap(m => m.tags))].sort();
+  const row = document.getElementById("tagRow");
+  row.innerHTML = `<button class="filter-tag active" onclick="selectTag(this,'すべて')">すべて</button>`;
+  allTags.forEach(tag => {
+    const btn = document.createElement("button");
+    btn.className = "filter-tag";
+    btn.textContent = tag;
+    btn.onclick = function(){ selectTag(this, tag); };
+    row.appendChild(btn);
+  });
+}
+
+function selectTag(el, tag) {
+  document.querySelectorAll(".filter-tag").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  activeTag = tag;
+  applyFilters();
+}
+
+// ---- フィルター適用 ----
+function applyFilters() {
+  const q = document.getElementById("searchInput").value.toLowerCase();
+  filteredMembers = allMembers.filter(m => {
+    const matchTag = activeTag === "すべて" || m.tags.includes(activeTag);
+    const matchSearch = !q || m.name.includes(q) || m.tanq.includes(q) || m.tags.some(t=>t.includes(q)) || m.work.includes(q) || m.hobby.includes(q);
+    return matchTag && matchSearch;
+  });
+  renderCards();
+  renderMap();
+}
+
+// ---- アバター生成 ----
+function makeAvatar(m, cls="") {
+  const div = document.createElement("div");
+  div.className = "avatar" + (cls ? " "+cls : "");
+  if(m.photo) {
+    const img = document.createElement("img");
+    img.src = m.photo;
+    img.alt = m.name;
+    img.onerror = () => { div.textContent = initials(m.name); };
+    div.appendChild(img);
+  } else {
+    div.textContent = initials(m.name);
+  }
+  return div;
+}
+
+function initials(name) { return name.replace(/\s/g,"").slice(0,2); }
+
+// ---- カード表示 ----
+function renderCards() {
+  const grid = document.getElementById("cardGrid");
+  if(!filteredMembers.length) {
+    grid.innerHTML = '<div class="state-msg">該当するメンバーが見つかりませんでした</div>';
+    return;
+  }
+  grid.innerHTML = "";
+  filteredMembers.forEach((m,i) => {
+    const card = document.createElement("div");
+    card.className = "member-card";
+    card.onclick = () => openPopup(m);
+    card.appendChild(makeAvatar(m));
+    card.innerHTML += `
+      <div class="card-name">${m.name}</div>
+      <div class="card-tanq">${m.tanq}</div>
+      <div class="card-tags">${m.tags.slice(0,3).map(t=>`<span class="mini-tag">${t}</span>`).join("")}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ---- マップ表示 ----
+let mapScale = 1, mapPanX = 0, mapPanY = 0;
+let mapDragging = false, mapLastX = 0, mapLastY = 0;
+const MAP_W = 900, MAP_H = 700;
+
+function seededRandom(seed) {
+  let s = seed;
+  return function() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+function renderMap() {
+  const canvas = document.getElementById("mapCanvas");
+  canvas.innerHTML = "";
+  canvas.style.width = MAP_W + "px";
+  canvas.style.height = MAP_H + "px";
+
+  filteredMembers.forEach((m, i) => {
+    const rng = seededRandom(i * 7919 + 31337);
+    const angle = rng() * Math.PI * 2;
+    const r = 60 + rng() * 280;
+    const x = Math.round(MAP_W/2 + Math.cos(angle) * r);
+    const y = Math.round(MAP_H/2 + Math.sin(angle) * r);
+
+    const node = document.createElement("div");
+    node.className = "map-node";
+    node.style.left = x + "px";
+    node.style.top = y + "px";
+    node.onclick = e => { e.stopPropagation(); openPopup(m); };
+
+    node.appendChild(makeAvatar(m));
+    const nameEl = document.createElement("div");
+    nameEl.className = "map-node-name";
+    nameEl.textContent = m.tanq || m.name;
+    node.appendChild(nameEl);
+    if(m.tags.length) {
+      const tagEl = document.createElement("div");
+      tagEl.className = "map-node-tags";
+      tagEl.innerHTML = m.tags.slice(0,2).map(t=>`<span class="map-node-tag">${t}</span>`).join("");
+      node.appendChild(tagEl);
+    }
+    canvas.appendChild(node);
+  });
+
+  document.getElementById("mapCount").textContent = filteredMembers.length + "名";
+}
+
+function applyMapTransform() {
+  document.getElementById("mapCanvas").style.transform = `translate(${mapPanX}px,${mapPanY}px) scale(${mapScale})`;
+}
+function zoomIn() { mapScale = Math.min(mapScale * 1.2, 3); applyMapTransform(); }
+function zoomOut() { mapScale = Math.max(mapScale / 1.2, 0.3); applyMapTransform(); }
+
+const mapWrap = document.getElementById("mapWrap");
+mapWrap.addEventListener("wheel", e => {
+  e.preventDefault();
+  const rect = mapWrap.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const delta = e.deltaY < 0 ? 1.1 : 0.9;
+  const ns = Math.max(0.3, Math.min(3, mapScale * delta));
+  mapPanX = mx - (mx - mapPanX) * (ns / mapScale);
+  mapPanY = my - (my - mapPanY) * (ns / mapScale);
+  mapScale = ns;
+  applyMapTransform();
+}, { passive: false });
+
+mapWrap.addEventListener("mousedown", e => { mapDragging=true; mapLastX=e.clientX; mapLastY=e.clientY; });
+window.addEventListener("mouseup", () => { mapDragging=false; });
+window.addEventListener("mousemove", e => {
+  if(!mapDragging) return;
+  mapPanX += e.clientX - mapLastX; mapPanY += e.clientY - mapLastY;
+  mapLastX = e.clientX; mapLastY = e.clientY;
+  applyMapTransform();
+});
+mapWrap.addEventListener("touchstart", e => { if(e.touches.length===1){ mapDragging=true; mapLastX=e.touches[0].clientX; mapLastY=e.touches[0].clientY; }},{passive:true});
+mapWrap.addEventListener("touchend", ()=>{ mapDragging=false; });
+mapWrap.addEventListener("touchmove", e => {
+  if(!mapDragging||e.touches.length!==1) return;
+  mapPanX+=e.touches[0].clientX-mapLastX; mapPanY+=e.touches[0].clientY-mapLastY;
+  mapLastX=e.touches[0].clientX; mapLastY=e.touches[0].clientY;
+  applyMapTransform();
+},{passive:true});
+
+// ---- タブ切り替え ----
+function switchTab(tab) {
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add("active");
+  document.getElementById("view"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add("active");
+}
+
+// ---- ポップアップ ----
+function openPopup(m) {
+  const pAvatar = document.getElementById("pAvatar");
+  pAvatar.innerHTML = "";
+  pAvatar.appendChild(makeAvatar(m, "popup-avatar"));
+
+  document.getElementById("pName").textContent = m.name;
+  document.getElementById("pTanq").textContent = "探究ネーム：" + m.tanq;
+  document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
+  document.getElementById("pBasic").textContent = [m.loc, m.mbti].filter(Boolean).join("　/　");
+  document.getElementById("pWork").textContent = m.work;
+  document.getElementById("pHobby").textContent = m.hobby;
+  document.getElementById("pTankyuu").textContent = m.tankyuu;
+  document.getElementById("pMsg").textContent = m.msg;
+  const snsLinks = m.sns ? m.sns.split(/[\n,]/).map(s=>s.trim()).filter(Boolean)
+    .map(s=>`<a class="sns-link" href="${s}" target="_blank" rel="noopener">${s.replace(/https?:\/\//,"").split("/")[0]}</a>`).join("") : "";
+  document.getElementById("pSns").innerHTML = snsLinks;
+
+  document.getElementById("overlay").classList.add("show");
+}
+function closePopup() { document.getElementById("overlay").classList.remove("show"); }
+function handleOverlayClick(e) { if(e.target===document.getElementById("overlay")) closePopup(); }
+
+// ---- 起動 ----
+fetchData();
+</script>
+</body>
+</html>
