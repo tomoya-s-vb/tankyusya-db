@@ -5,6 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>探究者DB</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+
+<script>
+/* ============================================================
+   ★★★ 設定エリア — 編集が必要なのはここだけです ★★★
+   ============================================================
+   SPREADSHEET_ID：SpreadsheetのURLの /d/ と /edit の間の文字列
+   例) https://docs.google.com/spreadsheets/d/1ABC.../edit
+                                               ↑ここ
+   SHEET_NAME：Spreadsheet下部のタブ名と完全一致させてください
+   ============================================================ */
+const SPREADSHEET_ID = "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
+const SHEET_NAME     = "探究者DB";
+/* ============================================================
+   設定エリアここまで — 以下は編集不要です
+   ============================================================ */
+</script>
+
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -54,10 +71,7 @@ body {
   color: var(--accent);
   letter-spacing: 0.05em;
 }
-.header-count {
-  font-size: 12px;
-  color: var(--text-muted);
-}
+.header-count { font-size: 12px; color: var(--text-muted); }
 
 /* ---- Controls ---- */
 .controls {
@@ -120,11 +134,7 @@ body {
 }
 
 /* ---- Tag filters ---- */
-.tag-row {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
 .filter-tag {
   height: 26px;
   padding: 0 10px;
@@ -326,12 +336,7 @@ body {
 .sns-link:hover { background: var(--tag-bg); }
 
 /* ---- Loading / Empty ---- */
-.state-msg {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 14px;
-  padding: 3rem 0;
-}
+.state-msg { text-align: center; color: var(--text-muted); font-size: 14px; padding: 3rem 0; }
 
 /* ---- Responsive ---- */
 @media (max-width: 600px) {
@@ -352,12 +357,8 @@ body {
   <div class="controls-row">
     <input class="search-input" type="text" id="searchInput" placeholder="名前・キーワードで検索…" oninput="applyFilters()">
     <div class="tab-bar">
-      <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">
-        ▦ カード
-      </button>
-      <button class="tab-btn" id="tabMap" onclick="switchTab('map')">
-        ◎ マップ
-      </button>
+      <button class="tab-btn active" id="tabCard" onclick="switchTab('card')">▦ カード</button>
+      <button class="tab-btn" id="tabMap" onclick="switchTab('map')">◎ マップ</button>
     </div>
   </div>
   <div class="tag-row" id="tagRow">
@@ -404,34 +405,20 @@ body {
 </div>
 
 <script>
-/* ============================================================
-   ★★★ 設定エリア — 編集が必要なのはここだけです ★★★
-   ============================================================
-   SPREADSHEET_ID：SpreadsheetのURLの /d/ と /edit の間の文字列
-   例) https://docs.google.com/spreadsheets/d/1ABC.../edit
-                                               ↑ここ
-   SHEET_NAME：Spreadsheet下部のタブ名と完全一致させてください
-   ============================================================ */
-const SPREADSHEET_ID = "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
-const SHEET_NAME     = "探究者DB";
-/* ============================================================
-   設定エリアここまで — 以下は編集不要です
-   ============================================================ */
-
 // Sheetsの列の順番（ヘッダー行と合わせること）
 const COL = {
-  name:    0,  // 名前
-  tanq:    1,  // 探究ネーム
-  loc:     2,  // 居住地
-  birthday:3,  // 誕生日
-  mbti:    4,  // MBTI
-  sns:     5,  // SNSリンク
-  work:    6,  // 職業・取組紹介
-  hobby:   7,  // 趣味・特技・好きなこと
-  tankyuu: 8,  // 探究したいこと・やってみたいこと
-  msg:     9,  // 皆へ一言
-  tags:    10, // タグ（カンマ区切り）
-  photo:   11, // 写真URL
+  name:     0,  // 名前
+  tanq:     1,  // 探究ネーム
+  loc:      2,  // 居住地
+  birthday: 3,  // 誕生日
+  mbti:     4,  // MBTI
+  sns:      5,  // SNSリンク
+  work:     6,  // 職業・取組紹介
+  hobby:    7,  // 趣味・特技・好きなこと
+  tankyuu:  8,  // 探究したいこと・やってみたいこと
+  msg:      9,  // 皆へ一言
+  tags:     10, // タグ（カンマ区切り）
+  photo:    11, // 写真URL
 };
 
 let allMembers = [];
@@ -440,7 +427,8 @@ let filteredMembers = [];
 
 // ---- データ取得 ----
 async function fetchData() {
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
+  // offset=1 でヘッダー行（1行目）をスキップして2行目からデータを取得
+  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&headers=1`;
   try {
     const res = await fetch(url);
     const text = await res.text();
@@ -449,19 +437,22 @@ async function fetchData() {
     allMembers = rows.map(row => {
       const c = row.c;
       const get = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
+      // Googleドライブの共有URLを画像表示用URLに自動変換
+      const rawPhoto = get(COL.photo);
+      const photo = convertDriveUrl(rawPhoto);
       return {
-        name:    get(COL.name),
-        tanq:    get(COL.tanq),
-        loc:     get(COL.loc),
-        birthday:get(COL.birthday),
-        mbti:    get(COL.mbti),
-        sns:     get(COL.sns),
-        work:    get(COL.work),
-        hobby:   get(COL.hobby),
-        tankyuu: get(COL.tankyuu),
-        msg:     get(COL.msg),
-        tags:    get(COL.tags).split(",").map(t=>t.trim()).filter(Boolean),
-        photo:   get(COL.photo),
+        name:     get(COL.name),
+        tanq:     get(COL.tanq),
+        loc:      get(COL.loc),
+        birthday: get(COL.birthday),
+        mbti:     get(COL.mbti),
+        sns:      get(COL.sns),
+        work:     get(COL.work),
+        hobby:    get(COL.hobby),
+        tankyuu:  get(COL.tankyuu),
+        msg:      get(COL.msg),
+        tags:     get(COL.tags).split(",").map(t=>t.trim()).filter(Boolean),
+        photo:    photo,
       };
     }).filter(m => m.name);
     buildTagFilters();
@@ -471,6 +462,18 @@ async function fetchData() {
     document.getElementById("cardGrid").innerHTML = '<div class="state-msg">データの読み込みに失敗しました。<br>SpreadsheetIDと共有設定を確認してください。</div>';
     document.getElementById("headerCount").textContent = "エラー";
   }
+}
+
+// ---- GoogleドライブURLを画像表示用に自動変換 ----
+function convertDriveUrl(url) {
+  if (!url) return "";
+  // 共有URL形式: https://drive.google.com/file/d/FILE_ID/view?...
+  const match = url.match(/\/file\/d\/([^/]+)/);
+  if (match) {
+    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+  }
+  // すでに変換済み or 別のURL形式はそのまま返す
+  return url;
 }
 
 // ---- タグフィルター構築 ----
@@ -510,11 +513,11 @@ function applyFilters() {
 function makeAvatar(m, cls="") {
   const div = document.createElement("div");
   div.className = "avatar" + (cls ? " "+cls : "");
-  if(m.photo) {
+  if (m.photo) {
     const img = document.createElement("img");
     img.src = m.photo;
     img.alt = m.name;
-    img.onerror = () => { div.textContent = initials(m.name); };
+    img.onerror = () => { div.innerHTML = ""; div.textContent = initials(m.name); };
     div.appendChild(img);
   } else {
     div.textContent = initials(m.name);
@@ -527,21 +530,24 @@ function initials(name) { return name.replace(/\s/g,"").slice(0,2); }
 // ---- カード表示 ----
 function renderCards() {
   const grid = document.getElementById("cardGrid");
-  if(!filteredMembers.length) {
+  if (!filteredMembers.length) {
     grid.innerHTML = '<div class="state-msg">該当するメンバーが見つかりませんでした</div>';
     return;
   }
   grid.innerHTML = "";
-  filteredMembers.forEach((m,i) => {
+  filteredMembers.forEach((m) => {
     const card = document.createElement("div");
     card.className = "member-card";
     card.onclick = () => openPopup(m);
     card.appendChild(makeAvatar(m));
-    card.innerHTML += `
+    const info = document.createElement("div");
+    info.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;width:100%";
+    info.innerHTML = `
       <div class="card-name">${m.name}</div>
       <div class="card-tanq">${m.tanq}</div>
       <div class="card-tags">${m.tags.slice(0,3).map(t=>`<span class="mini-tag">${t}</span>`).join("")}</div>
     `;
+    card.appendChild(info);
     grid.appendChild(card);
   });
 }
@@ -549,7 +555,8 @@ function renderCards() {
 // ---- マップ表示 ----
 let mapScale = 1, mapPanX = 0, mapPanY = 0;
 let mapDragging = false, mapLastX = 0, mapLastY = 0;
-const MAP_W = 900, MAP_H = 700;
+// マップのキャンバスサイズを広げてノード間の距離を確保
+const MAP_W = 1800, MAP_H = 1400;
 
 function seededRandom(seed) {
   let s = seed;
@@ -565,7 +572,8 @@ function renderMap() {
   filteredMembers.forEach((m, i) => {
     const rng = seededRandom(i * 7919 + 31337);
     const angle = rng() * Math.PI * 2;
-    const r = 60 + rng() * 280;
+    // 最小距離を広げ、ばらつきも大きくする
+    const r = 150 + rng() * 550;
     const x = Math.round(MAP_W/2 + Math.cos(angle) * r);
     const y = Math.round(MAP_H/2 + Math.sin(angle) * r);
 
@@ -580,7 +588,7 @@ function renderMap() {
     nameEl.className = "map-node-name";
     nameEl.textContent = m.tanq || m.name;
     node.appendChild(nameEl);
-    if(m.tags.length) {
+    if (m.tags.length) {
       const tagEl = document.createElement("div");
       tagEl.className = "map-node-tags";
       tagEl.innerHTML = m.tags.slice(0,2).map(t=>`<span class="map-node-tag">${t}</span>`).join("");
@@ -590,13 +598,19 @@ function renderMap() {
   });
 
   document.getElementById("mapCount").textContent = filteredMembers.length + "名";
+  // マップ初期表示を中央に合わせる
+  const wrap = document.getElementById("mapWrap");
+  mapScale = 0.5;
+  mapPanX = (wrap.offsetWidth - MAP_W * mapScale) / 2;
+  mapPanY = (wrap.offsetHeight - MAP_H * mapScale) / 2;
+  applyMapTransform();
 }
 
 function applyMapTransform() {
   document.getElementById("mapCanvas").style.transform = `translate(${mapPanX}px,${mapPanY}px) scale(${mapScale})`;
 }
-function zoomIn() { mapScale = Math.min(mapScale * 1.2, 3); applyMapTransform(); }
-function zoomOut() { mapScale = Math.max(mapScale / 1.2, 0.3); applyMapTransform(); }
+function zoomIn()  { mapScale = Math.min(mapScale * 1.2, 3);  applyMapTransform(); }
+function zoomOut() { mapScale = Math.max(mapScale / 1.2, 0.2); applyMapTransform(); }
 
 const mapWrap = document.getElementById("mapWrap");
 mapWrap.addEventListener("wheel", e => {
@@ -604,7 +618,7 @@ mapWrap.addEventListener("wheel", e => {
   const rect = mapWrap.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const delta = e.deltaY < 0 ? 1.1 : 0.9;
-  const ns = Math.max(0.3, Math.min(3, mapScale * delta));
+  const ns = Math.max(0.2, Math.min(3, mapScale * delta));
   mapPanX = mx - (mx - mapPanX) * (ns / mapScale);
   mapPanY = my - (my - mapPanY) * (ns / mapScale);
   mapScale = ns;
@@ -614,26 +628,26 @@ mapWrap.addEventListener("wheel", e => {
 mapWrap.addEventListener("mousedown", e => { mapDragging=true; mapLastX=e.clientX; mapLastY=e.clientY; });
 window.addEventListener("mouseup", () => { mapDragging=false; });
 window.addEventListener("mousemove", e => {
-  if(!mapDragging) return;
+  if (!mapDragging) return;
   mapPanX += e.clientX - mapLastX; mapPanY += e.clientY - mapLastY;
   mapLastX = e.clientX; mapLastY = e.clientY;
   applyMapTransform();
 });
 mapWrap.addEventListener("touchstart", e => { if(e.touches.length===1){ mapDragging=true; mapLastX=e.touches[0].clientX; mapLastY=e.touches[0].clientY; }},{passive:true});
-mapWrap.addEventListener("touchend", ()=>{ mapDragging=false; });
+mapWrap.addEventListener("touchend", () => { mapDragging=false; });
 mapWrap.addEventListener("touchmove", e => {
-  if(!mapDragging||e.touches.length!==1) return;
-  mapPanX+=e.touches[0].clientX-mapLastX; mapPanY+=e.touches[0].clientY-mapLastY;
-  mapLastX=e.touches[0].clientX; mapLastY=e.touches[0].clientY;
+  if (!mapDragging || e.touches.length!==1) return;
+  mapPanX += e.touches[0].clientX - mapLastX; mapPanY += e.touches[0].clientY - mapLastY;
+  mapLastX = e.touches[0].clientX; mapLastY = e.touches[0].clientY;
   applyMapTransform();
 },{passive:true});
 
 // ---- タブ切り替え ----
 function switchTab(tab) {
-  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
-  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  document.getElementById("tab"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add("active");
-  document.getElementById("view"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add("active");
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
+  document.getElementById("view" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
 }
 
 // ---- ポップアップ ----
@@ -641,7 +655,6 @@ function openPopup(m) {
   const pAvatar = document.getElementById("pAvatar");
   pAvatar.innerHTML = "";
   pAvatar.appendChild(makeAvatar(m, "popup-avatar"));
-
   document.getElementById("pName").textContent = m.name;
   document.getElementById("pTanq").textContent = "探究ネーム：" + m.tanq;
   document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
@@ -653,7 +666,6 @@ function openPopup(m) {
   const snsLinks = m.sns ? m.sns.split(/[\n,]/).map(s=>s.trim()).filter(Boolean)
     .map(s=>`<a class="sns-link" href="${s}" target="_blank" rel="noopener">${s.replace(/https?:\/\//,"").split("/")[0]}</a>`).join("") : "";
   document.getElementById("pSns").innerHTML = snsLinks;
-
   document.getElementById("overlay").classList.add("show");
 }
 function closePopup() { document.getElementById("overlay").classList.remove("show"); }
