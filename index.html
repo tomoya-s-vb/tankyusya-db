@@ -395,6 +395,7 @@ body {
       </div>
     </div>
     <div class="popup-tags" id="pTags"></div>
+    <div class="popup-section"><div class="popup-label">入会日</div><div class="popup-value" id="pJoined"></div></div>
     <div class="popup-section"><div class="popup-label">居住地 / MBTI</div><div class="popup-value" id="pBasic"></div></div>
     <div class="popup-section"><div class="popup-label">職業・取組</div><div class="popup-value" id="pWork"></div></div>
     <div class="popup-section"><div class="popup-label">趣味・好きなこと</div><div class="popup-value" id="pHobby"></div></div>
@@ -442,6 +443,7 @@ async function fetchData() {
       const rawPhoto = get(COL.photo);
       const photo = convertDriveUrl(rawPhoto);
       return {
+        joined:   get(COL.joined),
         name:     get(COL.name),
         tanq:     get(COL.tanq),
         loc:      get(COL.loc),
@@ -659,6 +661,7 @@ function openPopup(m) {
   document.getElementById("pName").textContent = m.name;
   document.getElementById("pTanq").textContent = "探究ネーム：" + m.tanq;
   document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
+  document.getElementById("pJoined").textContent = m.joined;
   document.getElementById("pBasic").textContent = [m.loc, m.mbti].filter(Boolean).join("　/　");
   document.getElementById("pWork").textContent = m.work;
   document.getElementById("pHobby").textContent = m.hobby;
