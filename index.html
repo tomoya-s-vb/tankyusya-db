@@ -670,8 +670,8 @@ function openPopup(m) {
   const pAvatar = document.getElementById("pAvatar");
   pAvatar.innerHTML = "";
   pAvatar.appendChild(makeAvatar(m, "popup-avatar"));
-  document.getElementById("pName").textContent = m.name;
-  document.getElementById("pTanq").textContent = "探究ネーム：" + m.tanq;
+  document.getElementById("pName").textContent = m.tanq;
+  document.getElementById("pTanq").textContent = "本名：" + m.name;
   document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
   document.getElementById("pJoined").textContent = formatDate(m.joined);
   document.getElementById("pBasic").textContent = [m.loc, m.mbti].filter(Boolean).join("　/　");
