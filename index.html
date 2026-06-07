@@ -26,24 +26,24 @@ const SHEET_NAME     = "探究者DB";
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #F7F5F0;
-  --surface: #FFFFFF;
-  --border: #E2DED6;
-  --border-strong: #C8C4BC;
-  --text: #1A1814;
-  --text-muted: #6B6860;
-  --accent: #4A3F8C;
-  --accent-light: #EEEDFe;
-  --accent-mid: #AFA9EC;
-  --tag-bg: #EEEDFE;
-  --tag-text: #3C3489;
+  --bg: #F7F5F0;          /* ページ全体の背景色 */
+  --surface: #FFFFFF;     /* カードやポップアップの背景 */
+  --border: #E2DED6;      /* 枠線（薄い） */
+  --border-strong: #C8C4BC; /* 枠線（濃い） */
+  --text: #1A1814;        /* メインの文字色 */
+  --text-muted: #6B6860;  /* サブの文字色 */
+  --accent: #4A3F8C;      /* アクセントカラー（ボタン・タイトルなど） */
+  --accent-light: #EEEDFE; /* アクセントの薄い版 */
+  --accent-mid: #AFA9EC;  /* アクセントの中間 */
+  --tag-bg: #EEEDFE;      /* タグの背景 */
+  --tag-text: #3C3489;    /* タグの文字色 */
   --font-main: 'Noto Sans JP', sans-serif;
   --font-display: 'Zen Kaku Gothic New', sans-serif;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-pill: 999px;
 }
-
+   
 body {
   font-family: var(--font-main);
   background: var(--bg);
@@ -473,7 +473,7 @@ function convertDriveUrl(url) {
   // 共有URL形式: https://drive.google.com/file/d/FILE_ID/view?...
   const match = url.match(/\/file\/d\/([^/]+)/);
   if (match) {
-    return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+    return `https://lh3.googleusercontent.com/d/${match[1]}`;
   }
   // すでに変換済み or 別のURL形式はそのまま返す
   return url;
