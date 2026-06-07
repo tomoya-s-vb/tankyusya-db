@@ -454,7 +454,7 @@ async function fetchData() {
         hobby:    get(COL.hobby),
         tankyuu:  get(COL.tankyuu),
         msg:      get(COL.msg),
-        tags:     get(COL.tags).split(",").map(t=>t.trim()).filter(Boolean),
+        tags:     get(COL.tags).split("・").map(t=>t.trim()).filter(Boolean),
         photo:    photo,
       };
     }).filter(m => m.name);
