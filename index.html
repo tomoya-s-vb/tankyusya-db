@@ -6,17 +6,6 @@
 <title>探究者DB</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* ============================================================
-   ★ 設定エリア — ここだけ編集すればOK
-   ============================================================ */
-:root {
-  --SPREADSHEET_ID: "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
-  --SHEET_NAME: "探究者DB"; /* シート名を変えた場合はここも変更 */
-}
-/* ============================================================
-   設定エリアここまで
-   ============================================================ */
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -416,11 +405,18 @@ body {
 
 <script>
 /* ============================================================
-   ★ 設定 — SpreadsheetIDをここに貼り付けてください
+   ★★★ 設定エリア — 編集が必要なのはここだけです ★★★
+   ============================================================
+   SPREADSHEET_ID：SpreadsheetのURLの /d/ と /edit の間の文字列
+   例) https://docs.google.com/spreadsheets/d/1ABC.../edit
+                                               ↑ここ
+   SHEET_NAME：Spreadsheet下部のタブ名と完全一致させてください
    ============================================================ */
-const SPREADSHEET_ID = "★ここにSpreadsheetIDを貼り付けてください★";
-const SHEET_NAME     = "探究者DB"; // シート名を変えたらここも変更
-/* ============================================================ */
+const SPREADSHEET_ID = "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
+const SHEET_NAME     = "探究者DB";
+/* ============================================================
+   設定エリアここまで — 以下は編集不要です
+   ============================================================ */
 
 // Sheetsの列の順番（ヘッダー行と合わせること）
 const COL = {
@@ -444,7 +440,7 @@ let filteredMembers = [];
 
 // ---- データ取得 ----
 async function fetchData() {
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_NAME)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}`;
   try {
     const res = await fetch(url);
     const text = await res.text();
