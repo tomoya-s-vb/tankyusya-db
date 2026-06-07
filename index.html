@@ -15,7 +15,7 @@
                                                ↑ここ
    SHEET_NAME：Spreadsheet下部のタブ名と完全一致させてください
    ============================================================ */
-const SPREADSHEET_ID = "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
+const SPREADSHEET_ID = "XXXXX";
 const SHEET_NAME     = "探究者DB";
 /* ============================================================
    設定エリアここまで — 以下は編集不要です
@@ -25,23 +25,76 @@ const SHEET_NAME     = "探究者DB";
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ============================================================
+   ライトモードの色設定
+   ============================================================ */
 :root {
-  --bg: #F7F5F0;          /* ページ全体の背景色 */
-  --surface: #FFFFFF;     /* カードやポップアップの背景 */
-  --border: #E2DED6;      /* 枠線（薄い） */
-  --border-strong: #C8C4BC; /* 枠線（濃い） */
-  --text: #1A1814;        /* メインの文字色 */
-  --text-muted: #6B6860;  /* サブの文字色 */
-  --accent: #4A3F8C;      /* アクセントカラー（ボタン・タイトルなど） */
-  --accent-light: #EEEDFE; /* アクセントの薄い版 */
-  --accent-mid: #AFA9EC;  /* アクセントの中間 */
-  --tag-bg: #EEEDFE;      /* タグの背景 */
-  --tag-text: #3C3489;    /* タグの文字色 */
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --border: #E2DED6;
+  --border-strong: #C8C4BC;
+  --text: #1A1814;
+  --text-muted: #6B6860;
+  --accent: #4A3F8C;
+  --accent-light: #EEEDFE;
+  --accent-mid: #AFA9EC;
+  --tag-bg: #EEEDFE;
+  --tag-text: #3C3489;
+  --map-bg: #EDEAE3;
   --font-main: 'Noto Sans JP', sans-serif;
   --font-display: 'Zen Kaku Gothic New', sans-serif;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-pill: 999px;
+}
+
+/* ============================================================
+   ダークモードの色設定
+   デバイス設定がダークのとき自動適用。手動切り替えでも使用。
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1A1820;
+    --surface: #252330;
+    --border: #35324A;
+    --border-strong: #4A4660;
+    --text: #EAE8F0;
+    --text-muted: #8B88A0;
+    --accent: #9B91E8;
+    --accent-light: #2A2640;
+    --accent-mid: #6B65C0;
+    --tag-bg: #2A2640;
+    --tag-text: #B8B0F0;
+    --map-bg: #201E2C;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1A1820;
+  --surface: #252330;
+  --border: #35324A;
+  --border-strong: #4A4660;
+  --text: #EAE8F0;
+  --text-muted: #8B88A0;
+  --accent: #9B91E8;
+  --accent-light: #2A2640;
+  --accent-mid: #6B65C0;
+  --tag-bg: #2A2640;
+  --tag-text: #B8B0F0;
+  --map-bg: #201E2C;
+}
+:root[data-theme="light"] {
+  --bg: #F7F5F0;
+  --surface: #FFFFFF;
+  --border: #E2DED6;
+  --border-strong: #C8C4BC;
+  --text: #1A1814;
+  --text-muted: #6B6860;
+  --accent: #4A3F8C;
+  --accent-light: #EEEDFE;
+  --accent-mid: #AFA9EC;
+  --tag-bg: #EEEDFE;
+  --tag-text: #3C3489;
+  --map-bg: #EDEAE3;
 }
    
 body {
@@ -260,7 +313,7 @@ body {
   width: 100%;
   height: calc(100vh - 220px);
   min-height: 400px;
-  background: #EDEAE3;
+  background: var(--map-bg);
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -393,6 +446,24 @@ body {
 /* ---- Loading / Empty ---- */
 .state-msg { text-align: center; color: var(--text-muted); font-size: 14px; padding: 3rem 0; }
 
+/* ---- テーマ切り替えボタン ---- */
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--bg); color: var(--accent); }
+
 /* ---- Responsive ---- */
 @media (max-width: 600px) {
   .header { padding: 0 1rem; }
@@ -405,7 +476,10 @@ body {
 
 <header class="header">
   <span class="header-title">探究者DB</span>
-  <span class="header-count" id="headerCount">読み込み中…</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="header-count" id="headerCount">読み込み中…</span>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="ライト/ダーク切り替え">🌙</button>
+  </div>
 </header>
 
 <div class="controls">
@@ -786,9 +860,39 @@ function openPopup(m) {
 function closePopup() { document.getElementById("overlay").classList.remove("show"); }
 function handleOverlayClick(e) { if(e.target===document.getElementById("overlay")) closePopup(); }
  
+// ---- テーマ切り替え ----
+function getSystemTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("themeToggle").textContent = theme === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("theme", theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || getSystemTheme();
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+
+// 起動時：保存済みの設定があればそれを、なければデバイス設定に従う
+(function() {
+  const saved = localStorage.getItem("theme");
+  if (saved) {
+    applyTheme(saved);
+  } else {
+    // デバイス設定に任せるが、ボタンのアイコンだけ合わせる
+    const icon = getSystemTheme() === "dark" ? "☀️" : "🌙";
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("themeToggle");
+      if (btn) btn.textContent = icon;
+    });
+  }
+})();
+
 // ---- 起動 ----
 fetchData();
 </script>
 </body>
 </html>
- 
