@@ -529,6 +529,18 @@ function makeAvatar(m, cls="") {
 }
 
 function initials(name) { return name.replace(/\s/g,"").slice(0,2); }
+function formatDate(val) {
+  if (!val) return "";
+  // Date(YYYY,M,D) 形式をパース（月は0始まりなので+1）
+  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if (match) {
+    const y = match[1];
+    const m = String(Number(match[2]) + 1).padStart(2, "0");
+    const d = String(match[3]).padStart(2, "0");
+    return `${y}年${m}月${d}日`;
+  }
+  return val;
+}
 
 // ---- カード表示 ----
 function renderCards() {
@@ -661,7 +673,7 @@ function openPopup(m) {
   document.getElementById("pName").textContent = m.name;
   document.getElementById("pTanq").textContent = "探究ネーム：" + m.tanq;
   document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
-  document.getElementById("pJoined").textContent = m.joined;
+  document.getElementById("pJoined").textContent = formatDate(m.joined);
   document.getElementById("pBasic").textContent = [m.loc, m.mbti].filter(Boolean).join("　/　");
   document.getElementById("pWork").textContent = m.work;
   document.getElementById("pHobby").textContent = m.hobby;
