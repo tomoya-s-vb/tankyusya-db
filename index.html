@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>探究者DB</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Zen+Kaku+Gothic+New:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
 
 <script>
 /* ============================================================
@@ -15,7 +15,7 @@
                                                ↑ここ
    SHEET_NAME：Spreadsheet下部のタブ名と完全一致させてください
    ============================================================ */
-const SPREADSHEET_ID = "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
+const SPREADSHEET_ID = "XXXXX";
 const SHEET_NAME     = "探究者DB";
 /* ============================================================
    設定エリアここまで — 以下は編集不要です
@@ -25,23 +25,76 @@ const SHEET_NAME     = "探究者DB";
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ============================================================
+   ライトモードの色設定
+   探究横丁 LitLink に合わせたクリーム×イエロー系パレット
+   ============================================================ */
 :root {
-  --bg: #F7F5F0;          /* ページ全体の背景色 */
-  --surface: #FFFFFF;     /* カードやポップアップの背景 */
-  --border: #E2DED6;      /* 枠線（薄い） */
-  --border-strong: #C8C4BC; /* 枠線（濃い） */
-  --text: #1A1814;        /* メインの文字色 */
-  --text-muted: #6B6860;  /* サブの文字色 */
-  --accent: #4A3F8C;      /* アクセントカラー（ボタン・タイトルなど） */
-  --accent-light: #EEEDFE; /* アクセントの薄い版 */
-  --accent-mid: #AFA9EC;  /* アクセントの中間 */
-  --tag-bg: #EEEDFE;      /* タグの背景 */
-  --tag-text: #3C3489;    /* タグの文字色 */
-  --font-main: 'Noto Sans JP', sans-serif;
-  --font-display: 'Zen Kaku Gothic New', sans-serif;
+  --bg: #FDF8EE;           /* ページ全体の背景：温かみのあるクリーム */
+  --surface: #FFFDF5;      /* カードやポップアップの背景：白に近いクリーム */
+  --border: #F0E4B0;       /* 枠線（薄い）：淡いゴールド */
+  --border-strong: #E8C840; /* 枠線（濃い）：イエロー */
+  --text: #3D2B00;         /* メインの文字色：ブラウン */
+  --text-muted: #8A6F2E;   /* サブの文字色：ライトブラウン */
+  --accent: #D4A000;       /* アクセントカラー：ゴールドイエロー */
+  --accent-light: #FDF3CC; /* アクセントの薄い版：ペールイエロー */
+  --accent-mid: #F5C518;   /* アクセントの中間：明るいイエロー */
+  --tag-bg: #FEF4CC;       /* タグの背景：ペールイエロー */
+  --tag-text: #7A5500;     /* タグの文字色：ダークブラウン */
+  --map-bg: #FAF0D0;       /* マップ背景：少し濃いクリーム */
+  --font-main: 'M PLUS Rounded 1c', sans-serif;
+  --font-display: 'M PLUS Rounded 1c', sans-serif;
   --radius: 12px;
   --radius-sm: 8px;
   --radius-pill: 999px;
+}
+
+/* ============================================================
+   ダークモードの色設定
+   ============================================================ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1E1800;
+    --surface: #2A2200;
+    --border: #3D3200;
+    --border-strong: #6B5500;
+    --text: #F5E8C0;
+    --text-muted: #B8963C;
+    --accent: #F5C518;
+    --accent-light: #2E2600;
+    --accent-mid: #C8A010;
+    --tag-bg: #2E2600;
+    --tag-text: #F0D060;
+    --map-bg: #181400;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1E1800;
+  --surface: #2A2200;
+  --border: #3D3200;
+  --border-strong: #6B5500;
+  --text: #F5E8C0;
+  --text-muted: #B8963C;
+  --accent: #F5C518;
+  --accent-light: #2E2600;
+  --accent-mid: #C8A010;
+  --tag-bg: #2E2600;
+  --tag-text: #F0D060;
+  --map-bg: #181400;
+}
+:root[data-theme="light"] {
+  --bg: #FDF8EE;
+  --surface: #FFFDF5;
+  --border: #F0E4B0;
+  --border-strong: #E8C840;
+  --text: #3D2B00;
+  --text-muted: #8A6F2E;
+  --accent: #D4A000;
+  --accent-light: #FDF3CC;
+  --accent-mid: #F5C518;
+  --tag-bg: #FEF4CC;
+  --tag-text: #7A5500;
+  --map-bg: #FAF0D0;
 }
    
 body {
@@ -260,7 +313,7 @@ body {
   width: 100%;
   height: calc(100vh - 220px);
   min-height: 400px;
-  background: #EDEAE3;
+  background: var(--map-bg);
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
@@ -393,6 +446,24 @@ body {
 /* ---- Loading / Empty ---- */
 .state-msg { text-align: center; color: var(--text-muted); font-size: 14px; padding: 3rem 0; }
 
+/* ---- テーマ切り替えボタン ---- */
+.theme-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { background: var(--accent-light); color: var(--accent); }
+
 /* ---- Responsive ---- */
 @media (max-width: 600px) {
   .header { padding: 0 1rem; }
@@ -405,7 +476,10 @@ body {
 
 <header class="header">
   <span class="header-title">探究者DB</span>
-  <span class="header-count" id="headerCount">読み込み中…</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="header-count" id="headerCount">読み込み中…</span>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="ライト/ダーク切り替え">🌙</button>
+  </div>
 </header>
 
 <div class="controls">
@@ -598,34 +672,15 @@ function setSort(key, dir) {
   document.getElementById("sortBtn").innerHTML = `↕ ${labels[key+"-"+dir]}`;
   document.getElementById("sortBtn").classList.add("active");
   document.getElementById("sortDropdown").classList.remove("open");
-  localStorage.setItem("sortKey", key);
-  localStorage.setItem("sortDir", dir);
   applyFilters();
 }
  
-// Date(YYYY,M,D) 形式を数値（yyyymmdd）に変換して比較
-function dateToNum(val) {
-  if (!val) return 0;
-  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
-  if (match) {
-    const y = Number(match[1]);
-    const m = Number(match[2]) + 1; // 0始まりなので+1
-    const d = Number(match[3]);
-    return y * 10000 + m * 100 + d;
-  }
-  return 0;
-}
-
 function sortMembers(arr) {
   return [...arr].sort((a, b) => {
-    let cmp;
-    if (sortKey === "joined") {
-      // 日付は数値比較
-      cmp = dateToNum(a.joined) - dateToNum(b.joined);
-    } else {
-      // 探究ネームは文字列比較
-      cmp = (a[sortKey] || "").localeCompare(b[sortKey] || "", "ja");
-    }
+    let va = a[sortKey] || "";
+    let vb = b[sortKey] || "";
+    // 入会日はDate(...)形式なので文字列比較でも日付順になる
+    const cmp = va.localeCompare(vb, "ja");
     return sortDir === "asc" ? cmp : -cmp;
   });
 }
@@ -774,7 +829,6 @@ function switchTab(tab) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
   document.getElementById("view" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
-  localStorage.setItem("activeTab", tab);
 }
  
 // ---- ドロップダウンを外クリックで閉じる ----
@@ -806,13 +860,39 @@ function openPopup(m) {
 function closePopup() { document.getElementById("overlay").classList.remove("show"); }
 function handleOverlayClick(e) { if(e.target===document.getElementById("overlay")) closePopup(); }
  
-// ---- 起動 ----
-// 保存済みのタブ・ソート設定を復元
+// ---- テーマ切り替え ----
+function getSystemTheme() {
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("themeToggle").textContent = theme === "dark" ? "☀️" : "🌙";
+  localStorage.setItem("theme", theme);
+}
+function toggleTheme() {
+  const current = document.documentElement.getAttribute("data-theme") || getSystemTheme();
+  applyTheme(current === "dark" ? "light" : "dark");
+}
+
+// ---- 起動：保存済み設定を復元 ----
 (function restoreSettings() {
-  const savedTab  = localStorage.getItem("activeTab");
-  const savedKey  = localStorage.getItem("sortKey");
-  const savedDir  = localStorage.getItem("sortDir");
-  if (savedTab && (savedTab === "card" || savedTab === "map")) switchTab(savedTab);
+  // テーマ
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme) {
+    applyTheme(savedTheme);
+  } else {
+    const icon = getSystemTheme() === "dark" ? "☀️" : "🌙";
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("themeToggle");
+      if (btn) btn.textContent = icon;
+    });
+  }
+  // タブ
+  const savedTab = localStorage.getItem("activeTab");
+  if (savedTab === "card" || savedTab === "map") switchTab(savedTab);
+  // ソート
+  const savedKey = localStorage.getItem("sortKey");
+  const savedDir = localStorage.getItem("sortDir");
   if (savedKey && savedDir) setSort(savedKey, savedDir);
 })();
 
