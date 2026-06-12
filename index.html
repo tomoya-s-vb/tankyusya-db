@@ -11,13 +11,11 @@
 /* ============================================================
    ★★★ 設定エリア — 編集が必要なのはここだけです ★★★
    ============================================================
-   SPREADSHEET_ID：SpreadsheetのURLの /d/ と /edit の間の文字列
-   例) https://docs.google.com/spreadsheets/d/1ABC.../edit
-                                               ↑ここ
-   SHEET_NAME：Spreadsheet下部のタブ名と完全一致させてください
+   APPS_SCRIPT_URL：Apps Scriptを「ウェブアプリ」としてデプロイした際に
+   表示される「ウェブアプリのURL」（.../exec で終わるもの）を貼り付け
+   （末尾に ?page=members は自動で付加されるので含めなくてOK）
    ============================================================ */
-const SPREADSHEET_ID = "1116qcKe_6Yy5gNav3PJDU9tL5MVBft-hlr4ZEHzlYyk";
-const SHEET_NAME     = "探究者DB";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCP1ANo82YhaAGYbP9kk0AWbhY5HDJVmXNUZHqnleFxDIhcWjidx9dOaoQymha6qHL/exec";
 /* ============================================================
    設定エリアここまで — 以下は編集不要です
    ============================================================ */
@@ -555,21 +553,22 @@ body {
 </div>
 
 <script>
-// Sheetsの列の順番（ヘッダー行と合わせること）
-const COL = {
-  joined:   0,  // 入会日
-  name:     1,  // 名前
-  tanq:     2,  // 探究ネーム
-  loc:      3,  // 居住地
-  birthday: 4,  // 誕生日
-  mbti:     5,  // MBTI
-  sns:      6,  // SNSリンク
-  work:     7,  // 職業・取組紹介
-  hobby:    8,  // 趣味・特技・好きなこと
-  tankyuu:  9,  // 探究したいこと・やってみたいこと
-  msg:      10, // 皆へ一言
-  tags:     11, // タグ（「・」区切り）
-  photo:    12, // 写真URL
+// Sheetsのヘッダー名 → ページ内で使う項目名の対応
+// ヘッダー名はSpreadsheet1行目の表記と完全に一致させること
+const FIELD_MAP = {
+  "入会日":   "joined",
+  "名前":     "name",
+  "探究ネーム": "tanq",
+  "居住地":   "loc",
+  "誕生日":   "birthday",
+  "MBTI":     "mbti",
+  "SNSリンク": "sns",
+  "職業・取組紹介": "work",
+  "趣味・特技・好きなこと": "hobby",
+  "探究したいこと・やってみたいこと": "tankyuu",
+  "皆へ一言":  "msg",
+  "タグ":     "tags",
+  "写真URL":  "photo",
 };
 
 let allMembers = [];
@@ -580,37 +579,29 @@ let sortDir = "desc";
 
 // ---- データ取得 ----
 async function fetchData() {
-  const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&headers=1`;
   try {
-    const res = await fetch(url);
-    const text = await res.text();
-    const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
-    const rows = json.table.rows;
+    const res = await fetch(`${APPS_SCRIPT_URL}?page=members`);
+    const rows = await res.json();
     allMembers = rows.map(row => {
-      const c = row.c;
-      const get = i => (c[i] && c[i].v != null) ? String(c[i].v).trim() : "";
-      const rawPhoto = get(COL.photo);
-      return {
-        joined:   get(COL.joined),
-        name:     get(COL.name),
-        tanq:     get(COL.tanq),
-        loc:      get(COL.loc),
-        birthday: get(COL.birthday),
-        mbti:     get(COL.mbti),
-        sns:      get(COL.sns),
-        work:     get(COL.work),
-        hobby:    get(COL.hobby),
-        tankyuu:  get(COL.tankyuu),
-        msg:      get(COL.msg),
-        tags:     get(COL.tags).split("・").map(t=>t.trim()).filter(Boolean),
-        photo:    convertDriveUrl(rawPhoto),
-      };
+      const m = {};
+      for (const [jpKey, enKey] of Object.entries(FIELD_MAP)) {
+        const raw = row[jpKey];
+        const val = (raw != null) ? String(raw).trim() : "";
+        if (enKey === "tags") {
+          m[enKey] = val.split("・").map(t=>t.trim()).filter(Boolean);
+        } else if (enKey === "photo") {
+          m[enKey] = convertDriveUrl(val);
+        } else {
+          m[enKey] = val;
+        }
+      }
+      return m;
     }).filter(m => m.name);
     buildTagFilters();
     applyFilters();
     document.getElementById("headerCount").textContent = allMembers.length + "名";
   } catch(e) {
-    document.getElementById("cardGrid").innerHTML = '<div class="state-msg">データの読み込みに失敗しました。<br>SpreadsheetIDと共有設定を確認してください。</div>';
+    document.getElementById("cardGrid").innerHTML = '<div class="state-msg">データの読み込みに失敗しました。<br>Apps ScriptのURLとデプロイ設定を確認してください。</div>';
     document.getElementById("headerCount").textContent = "エラー";
   }
 }
@@ -626,12 +617,18 @@ function convertDriveUrl(url) {
 // ---- 日付フォーマット ----
 function formatDate(val) {
   if (!val) return "";
-  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  // gviz の Date(...) 形式
+  let match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
   if (match) {
     const y = match[1];
     const m = String(Number(match[2]) + 1).padStart(2, "0");
     const d = String(match[3]).padStart(2, "0");
     return `${y}年${m}月${d}日`;
+  }
+  // Apps Scriptが返す YYYY-MM-DD 形式
+  match = val.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    return `${match[1]}年${match[2].padStart(2,"0")}月${match[3].padStart(2,"0")}日`;
   }
   return val;
 }
@@ -680,15 +677,21 @@ function birthdayToNum(val) {
   return md.m * 100 + md.d;
 }
 
-// 入会日(Date(Y,M,D)) を yyyymmdd の数値に変換（並び替え用）
+// 入会日を yyyymmdd の数値に変換（並び替え用）
 function dateToNum(val) {
   if (!val) return 0;
-  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  // gviz の Date(...) 形式
+  let match = val.match(/Date\((\d+),(\d+),(\d+)/);
   if (match) {
     const y = Number(match[1]);
     const m = Number(match[2]) + 1;
     const d = Number(match[3]);
     return y * 10000 + m * 100 + d;
+  }
+  // Apps Scriptが返す YYYY-MM-DD 形式
+  match = val.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    return Number(match[1]) * 10000 + Number(match[2]) * 100 + Number(match[3]);
   }
   return 0;
 }
