@@ -578,32 +578,52 @@ let sortKey = "joined";
 let sortDir = "desc";
 
 // ---- データ取得 ----
+const MEMBER_CACHE_KEY = "memberDirectoryCache";
+
 async function fetchData() {
+  // ① 前回取得したデータがあれば、まず即表示する
+  const cached = localStorage.getItem(MEMBER_CACHE_KEY);
+  if (cached) {
+    try {
+      processMemberRows(JSON.parse(cached));
+    } catch(e) { /* キャッシュが壊れていれば無視して通常取得へ */ }
+  }
+
+  // ② 裏側で最新データを取得し、表示とキャッシュを更新する
   try {
     const res = await fetch(`${APPS_SCRIPT_URL}?page=members`);
     const rows = await res.json();
-    allMembers = rows.map(row => {
-      const m = {};
-      for (const [jpKey, enKey] of Object.entries(FIELD_MAP)) {
-        const raw = row[jpKey];
-        const val = (raw != null) ? String(raw).trim() : "";
-        if (enKey === "tags") {
-          m[enKey] = val.split("・").map(t=>t.trim()).filter(Boolean);
-        } else if (enKey === "photo") {
-          m[enKey] = convertDriveUrl(val);
-        } else {
-          m[enKey] = val;
-        }
-      }
-      return m;
-    }).filter(m => m.name);
-    buildTagFilters();
-    applyFilters();
-    document.getElementById("headerCount").textContent = allMembers.length + "名";
+    localStorage.setItem(MEMBER_CACHE_KEY, JSON.stringify(rows));
+    processMemberRows(rows);
   } catch(e) {
-    document.getElementById("cardGrid").innerHTML = '<div class="state-msg">データの読み込みに失敗しました。<br>Apps ScriptのURLとデプロイ設定を確認してください。</div>';
-    document.getElementById("headerCount").textContent = "エラー";
+    if (!cached) {
+      document.getElementById("cardGrid").innerHTML = '<div class="state-msg">データの読み込みに失敗しました。<br>Apps ScriptのURLとデプロイ設定を確認してください。</div>';
+      document.getElementById("headerCount").textContent = "エラー";
+    }
+    // キャッシュ表示が出ている場合は、エラーは静かに無視する
   }
+}
+
+// 取得したJSON行データを画面用のデータ構造に変換して反映
+function processMemberRows(rows) {
+  allMembers = rows.map(row => {
+    const m = {};
+    for (const [jpKey, enKey] of Object.entries(FIELD_MAP)) {
+      const raw = row[jpKey];
+      const val = (raw != null) ? String(raw).trim() : "";
+      if (enKey === "tags") {
+        m[enKey] = val.split("・").map(t=>t.trim()).filter(Boolean);
+      } else if (enKey === "photo") {
+        m[enKey] = convertDriveUrl(val);
+      } else {
+        m[enKey] = val;
+      }
+    }
+    return m;
+  }).filter(m => m.name);
+  buildTagFilters();
+  applyFilters();
+  document.getElementById("headerCount").textContent = allMembers.length + "名";
 }
  
 // ---- GoogleドライブURLを画像表示用に自動変換 ----
