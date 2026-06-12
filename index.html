@@ -496,12 +496,12 @@ body {
         ↕ 並び替え
       </button>
       <div class="sort-dropdown" id="sortDropdown">
-        <button class="sort-option active" id="sort-joined-asc"  onclick="setSort('joined','asc')">入会順（古い順）</button>
-        <button class="sort-option"        id="sort-joined-desc" onclick="setSort('joined','desc')">入会順（新しい順）</button>
+        <button class="sort-option active" id="sort-joined-desc" onclick="setSort('joined','desc')">入会順（新しい順）</button>
+        <button class="sort-option"        id="sort-joined-asc"  onclick="setSort('joined','asc')">入会順（古い順）</button>
         <button class="sort-option"        id="sort-tanq-asc"   onclick="setSort('tanq','asc')">探究ネーム（あ→ん）</button>
         <button class="sort-option"        id="sort-tanq-desc"  onclick="setSort('tanq','desc')">探究ネーム（ん→あ）</button>
-        <button class="sort-option"        id="sort-birthday-asc"  onclick="setSort('birthday','asc')">誕生日順（1月1日→12月31日）</button>
-        <button class="sort-option"        id="sort-birthday-desc" onclick="setSort('birthday','desc')">誕生日順（12月31日→1月1日）</button>
+        <button class="sort-option"        id="sort-birthday-asc"  onclick="setSort('birthday','asc')">誕生日順（1月⇒12月）</button>
+        <button class="sort-option"        id="sort-birthday-desc" onclick="setSort('birthday','desc')">誕生日順（12月⇒1月）</button>
       </div>
     </div>
 
@@ -576,7 +576,7 @@ let allMembers = [];
 let activeTag = "すべて";
 let filteredMembers = [];
 let sortKey = "joined";
-let sortDir = "asc";
+let sortDir = "desc";
 
 // ---- データ取得 ----
 async function fetchData() {
@@ -636,29 +636,48 @@ function formatDate(val) {
   return val;
 }
 
+// ---- 誕生日から「月」「日」を抽出（年やフォーマットの違いを吸収） ----
+// 対応形式: Date(Y,M,D)（時刻付きも可）、YYYY/MM/DD、YYYY-MM-DD、YYYY年M月D日、
+//          MM/DD、M月D日、「非公開」
+function parseBirthdayMD(val) {
+  if (!val || val.includes("非公開")) return null;
+
+  // gviz の Date(...) 形式（時刻が付く場合も先頭3つだけ見る）
+  let match = val.match(/Date\((\d+),(\d+),(\d+)/);
+  if (match) {
+    return { m: Number(match[2]) + 1, d: Number(match[3]) };
+  }
+  // YYYY/MM/DD・YYYY-MM-DD・YYYY年M月D日
+  match = val.match(/^\d{4}[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
+  if (match) {
+    return { m: Number(match[1]), d: Number(match[2]) };
+  }
+  // MM/DD・MM-DD（年なし）
+  match = val.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if (match) {
+    return { m: Number(match[1]), d: Number(match[2]) };
+  }
+  // M月D日（年なし）
+  match = val.match(/(\d{1,2})月(\d{1,2})日/);
+  if (match) {
+    return { m: Number(match[1]), d: Number(match[2]) };
+  }
+  return null;
+}
+
 // ---- 誕生日フォーマット（年は表示しない／非公開対応） ----
 function formatBirthday(val) {
-  if (!val || val.includes("非公開")) return "非公開";
-  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
-  if (match) {
-    const m = String(Number(match[2]) + 1).padStart(2, "0");
-    const d = String(match[3]).padStart(2, "0");
-    return `${m}月${d}日`;
-  }
-  return val;
+  const md = parseBirthdayMD(val);
+  if (!md) return "非公開";
+  return `${String(md.m).padStart(2,"0")}月${String(md.d).padStart(2,"0")}日`;
 }
 
 // ---- 誕生日を「月日」のみの数値に変換（並び替え用） ----
 // 1月1日→101, 12月31日→1231。非公開・未入力は最後尾(9999)に。
 function birthdayToNum(val) {
-  if (!val || val.includes("非公開")) return 9999;
-  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
-  if (match) {
-    const m = Number(match[2]) + 1;
-    const d = Number(match[3]);
-    return m * 100 + d;
-  }
-  return 9999;
+  const md = parseBirthdayMD(val);
+  if (!md) return 9999;
+  return md.m * 100 + md.d;
 }
 
 // 入会日(Date(Y,M,D)) を yyyymmdd の数値に変換（並び替え用）
@@ -712,8 +731,8 @@ function setSort(key, dir) {
     "joined-desc":  "入会順（新しい順）",
     "tanq-asc":     "探究ネーム（あ→ん）",
     "tanq-desc":    "探究ネーム（ん→あ）",
-    "birthday-asc": "誕生日順（1月1日→12月31日）",
-    "birthday-desc":"誕生日順（12月31日→1月1日）",
+    "birthday-asc": "誕生日順（1月⇒12月）",
+    "birthday-desc":"誕生日順（12月⇒1月）",
   };
   document.getElementById("sortBtn").innerHTML = `↕ ${labels[key+"-"+dir]}`;
   document.getElementById("sortBtn").classList.add("active");
@@ -946,7 +965,11 @@ function toggleTheme() {
   // ソート
   const savedKey = localStorage.getItem("sortKey");
   const savedDir = localStorage.getItem("sortDir");
-  if (savedKey && savedDir) setSort(savedKey, savedDir);
+  if (savedKey && savedDir) {
+    setSort(savedKey, savedDir);
+  } else {
+    setSort("joined", "desc");
+  }
 })();
 
 fetchData();
