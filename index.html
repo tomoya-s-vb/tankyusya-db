@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>探究者DB</title>
-<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1dhaR3knbBfjD3kqv59wwywu-jiMclwTY">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
 
 <script>
 /* ============================================================
@@ -500,6 +500,8 @@ body {
         <button class="sort-option"        id="sort-joined-desc" onclick="setSort('joined','desc')">入会順（新しい順）</button>
         <button class="sort-option"        id="sort-tanq-asc"   onclick="setSort('tanq','asc')">探究ネーム（あ→ん）</button>
         <button class="sort-option"        id="sort-tanq-desc"  onclick="setSort('tanq','desc')">探究ネーム（ん→あ）</button>
+        <button class="sort-option"        id="sort-birthday-asc"  onclick="setSort('birthday','asc')">誕生日順（1月1日→12月31日）</button>
+        <button class="sort-option"        id="sort-birthday-desc" onclick="setSort('birthday','desc')">誕生日順（12月31日→1月1日）</button>
       </div>
     </div>
 
@@ -543,7 +545,7 @@ body {
     </div>
     <div class="popup-tags" id="pTags"></div>
     <div class="popup-section"><div class="popup-label">入会日</div><div class="popup-value" id="pJoined"></div></div>
-    <div class="popup-section"><div class="popup-label">居住地 / MBTI</div><div class="popup-value" id="pBasic"></div></div>
+    <div class="popup-section"><div class="popup-label">居住地 / 誕生日 / MBTI</div><div class="popup-value" id="pBasic"></div></div>
     <div class="popup-section"><div class="popup-label">職業・取組</div><div class="popup-value" id="pWork"></div></div>
     <div class="popup-section"><div class="popup-label">趣味・好きなこと</div><div class="popup-value" id="pHobby"></div></div>
     <div class="popup-section"><div class="popup-label">探究したいこと</div><div class="popup-value" id="pTankyuu"></div></div>
@@ -633,6 +635,44 @@ function formatDate(val) {
   }
   return val;
 }
+
+// ---- 誕生日フォーマット（年は表示しない／非公開対応） ----
+function formatBirthday(val) {
+  if (!val || val.includes("非公開")) return "非公開";
+  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if (match) {
+    const m = String(Number(match[2]) + 1).padStart(2, "0");
+    const d = String(match[3]).padStart(2, "0");
+    return `${m}月${d}日`;
+  }
+  return val;
+}
+
+// ---- 誕生日を「月日」のみの数値に変換（並び替え用） ----
+// 1月1日→101, 12月31日→1231。非公開・未入力は最後尾(9999)に。
+function birthdayToNum(val) {
+  if (!val || val.includes("非公開")) return 9999;
+  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if (match) {
+    const m = Number(match[2]) + 1;
+    const d = Number(match[3]);
+    return m * 100 + d;
+  }
+  return 9999;
+}
+
+// 入会日(Date(Y,M,D)) を yyyymmdd の数値に変換（並び替え用）
+function dateToNum(val) {
+  if (!val) return 0;
+  const match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if (match) {
+    const y = Number(match[1]);
+    const m = Number(match[2]) + 1;
+    const d = Number(match[3]);
+    return y * 10000 + m * 100 + d;
+  }
+  return 0;
+}
  
 // ---- タグフィルター構築 ----
 function buildTagFilters() {
@@ -668,23 +708,31 @@ function setSort(key, dir) {
   document.getElementById(`sort-${key}-${dir}`).classList.add("active");
   // ボタンのラベルを更新
   const labels = {
-    "joined-asc":  "入会順（古い順）",
-    "joined-desc": "入会順（新しい順）",
-    "tanq-asc":    "探究ネーム（あ→ん）",
-    "tanq-desc":   "探究ネーム（ん→あ）",
+    "joined-asc":   "入会順（古い順）",
+    "joined-desc":  "入会順（新しい順）",
+    "tanq-asc":     "探究ネーム（あ→ん）",
+    "tanq-desc":    "探究ネーム（ん→あ）",
+    "birthday-asc": "誕生日順（1月1日→12月31日）",
+    "birthday-desc":"誕生日順（12月31日→1月1日）",
   };
   document.getElementById("sortBtn").innerHTML = `↕ ${labels[key+"-"+dir]}`;
   document.getElementById("sortBtn").classList.add("active");
   document.getElementById("sortDropdown").classList.remove("open");
+  localStorage.setItem("sortKey", key);
+  localStorage.setItem("sortDir", dir);
   applyFilters();
 }
- 
+
 function sortMembers(arr) {
   return [...arr].sort((a, b) => {
-    let va = a[sortKey] || "";
-    let vb = b[sortKey] || "";
-    // 入会日はDate(...)形式なので文字列比較でも日付順になる
-    const cmp = va.localeCompare(vb, "ja");
+    let cmp;
+    if (sortKey === "joined") {
+      cmp = dateToNum(a.joined) - dateToNum(b.joined);
+    } else if (sortKey === "birthday") {
+      cmp = birthdayToNum(a.birthday) - birthdayToNum(b.birthday);
+    } else {
+      cmp = (a[sortKey] || "").localeCompare(b[sortKey] || "", "ja");
+    }
     return sortDir === "asc" ? cmp : -cmp;
   });
 }
@@ -833,6 +881,7 @@ function switchTab(tab) {
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
   document.getElementById("view" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
+  localStorage.setItem("activeTab", tab);
 }
  
 // ---- ドロップダウンを外クリックで閉じる ----
@@ -851,7 +900,7 @@ function openPopup(m) {
   document.getElementById("pTanq").textContent = "本名：" + m.name;
   document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
   document.getElementById("pJoined").textContent = formatDate(m.joined);
-  document.getElementById("pBasic").textContent = [m.loc, m.mbti].filter(Boolean).join("　/　");
+  document.getElementById("pBasic").textContent = [m.loc, formatBirthday(m.birthday), m.mbti].filter(Boolean).join("　/　");
   document.getElementById("pWork").textContent = m.work;
   document.getElementById("pHobby").textContent = m.hobby;
   document.getElementById("pTankyuu").textContent = m.tankyuu;
