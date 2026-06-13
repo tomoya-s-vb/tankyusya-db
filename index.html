@@ -484,7 +484,7 @@ body {
 <body>
 
 <header class="header">
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div style="display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="resetToDefaultView()" title="デフォルト表示に戻る">
     <img src="https://lh3.googleusercontent.com/d/1dhaR3knbBfjD3kqv59wwywu-jiMclwTY" alt="探究横丁アイコン" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">
     <span class="header-title">探究者DB</span>
   </div>
@@ -845,6 +845,32 @@ function selectTag(el, tag) {
   currentPositions = {}; // タグ変更時は再形成結果をリセットし、基本配置に戻す
   applyFilters();
 }
+
+// ヘッダーのロゴ/タイトルをクリックした際に、初期表示状態に戻す
+function resetToDefaultView() {
+  // 検索欄をクリア
+  document.getElementById("searchInput").value = "";
+
+  // 探究タグ・所在地タグを「すべて」に戻す
+  activeTag = "すべて";
+  document.querySelectorAll("#tagRow .filter-tag").forEach(b => b.classList.remove("active"));
+  const tagAllBtn = document.querySelector("#tagRow .filter-tag");
+  if (tagAllBtn) tagAllBtn.classList.add("active");
+
+  activeLocFilter = { type: "all" };
+  document.getElementById("locPrefRow").innerHTML = "";
+  document.querySelectorAll("#locRegionRow .filter-tag").forEach(b => b.classList.remove("active"));
+  const locAllBtn = document.querySelector("#locRegionRow .filter-tag");
+  if (locAllBtn) locAllBtn.classList.add("active");
+
+  currentPositions = {};
+
+  // ソートを「入会順（新しい順）」に戻す（内部でapplyFiltersも実行される）
+  setSort("joined", "desc");
+
+  // 表示をカードタブに戻す
+  switchTab("card");
+}
  
 // ---- ソート ----
 function toggleSortDropdown() {
@@ -899,7 +925,7 @@ function applyFilters() {
     } else if (activeLocFilter.type === "pref") {
       matchLoc = m.locTags.includes(activeLocFilter.value);
     }
-    const matchSearch = !q || m.name.includes(q) || m.tanq.includes(q) || m.tags.some(t=>t.includes(q)) || m.locTags.some(t=>t.includes(q)) || m.work.includes(q) || m.hobby.includes(q);
+    const matchSearch = !q || m.name.toLowerCase().includes(q) || m.tanq.toLowerCase().includes(q) || m.tags.some(t=>t.toLowerCase().includes(q)) || m.locTags.some(t=>t.toLowerCase().includes(q)) || m.work.toLowerCase().includes(q) || m.hobby.toLowerCase().includes(q);
     return matchTag && matchLoc && matchSearch;
   });
   filteredMembers = sortMembers(filteredMembers);
