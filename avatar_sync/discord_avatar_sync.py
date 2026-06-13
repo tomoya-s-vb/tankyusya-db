@@ -102,15 +102,22 @@ def main():
     drive_service = build("drive", "v3", credentials=creds)
 
     sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
-    rows = sheet.get_all_records()
-    headers = sheet.row_values(1)
 
-    col_photo_idx = headers.index(COL_PHOTO_URL) + 1  # gspreadは1始まり
+    # get_all_records() はヘッダー行に空欄や重複があるとエラーになるため、
+    # 生データを取得して必要な列だけを自分で探す
+    all_values = sheet.get_all_values()
+    headers = all_values[0]
+    data_rows = all_values[1:]
 
-    for i, row in enumerate(rows, start=2):  # 2行目から（1行目はヘッダー）
-        member_no = str(row.get(COL_MEMBER_NO, "")).strip()
-        tanq = str(row.get(COL_TANQ, "")).strip()
-        discord_id = str(row.get(COL_DISCORD_ID, "")).strip()
+    col_member_no = headers.index(COL_MEMBER_NO)
+    col_tanq = headers.index(COL_TANQ)
+    col_discord_id = headers.index(COL_DISCORD_ID)
+    col_photo_idx = headers.index(COL_PHOTO_URL) + 1  # gspreadのupdate_cellは1始まり
+
+    for i, row in enumerate(data_rows, start=2):  # 2行目から（1行目はヘッダー）
+        member_no = (row[col_member_no] if col_member_no < len(row) else "").strip()
+        tanq = (row[col_tanq] if col_tanq < len(row) else "").strip()
+        discord_id = (row[col_discord_id] if col_discord_id < len(row) else "").strip()
 
         if not discord_id or not member_no or not tanq:
             continue
