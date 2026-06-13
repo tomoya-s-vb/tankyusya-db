@@ -13,6 +13,9 @@ Googleドライブにアップロードし、SpreadsheetのURL欄を更新する
   SPREADSHEET_ID=...
   SHEET_NAME=探究者DB
   DRIVE_FOLDER_ID=...
+  DRIVE_CLIENT_ID=...
+  DRIVE_CLIENT_SECRET=...
+  DRIVE_REFRESH_TOKEN=...
 """
 
 import os
@@ -20,6 +23,7 @@ import time
 import requests
 import gspread
 from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials as UserCredentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaInMemoryUpload
 from dotenv import load_dotenv
@@ -31,6 +35,12 @@ GOOGLE_SERVICE_ACCOUNT_FILE = os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"]
 SPREADSHEET_ID = os.environ["SPREADSHEET_ID"]
 SHEET_NAME = os.environ.get("SHEET_NAME", "探究者DB")
 DRIVE_FOLDER_ID = os.environ["DRIVE_FOLDER_ID"]
+
+# Driveへのアップロードは、サービスアカウントではなく個人アカウントのOAuthで行う
+# （サービスアカウントにはDriveの保存容量が割り当てられていないため）
+DRIVE_CLIENT_ID = os.environ["DRIVE_CLIENT_ID"]
+DRIVE_CLIENT_SECRET = os.environ["DRIVE_CLIENT_SECRET"]
+DRIVE_REFRESH_TOKEN = os.environ["DRIVE_REFRESH_TOKEN"]
 
 # Sheetの列名（1行目のヘッダーと一致させる）
 COL_MEMBER_NO = "会員番号"
@@ -97,17 +107,35 @@ def upload_or_update_image(drive_service, filename: str, image_bytes: bytes, mim
 
 
 def main():
+    # Sheetsの読み書きはサービスアカウントを使用
     creds = Credentials.from_service_account_file(GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     gc = gspread.authorize(creds)
-    drive_service = build("drive", "v3", credentials=creds)
+
+    # Driveへのアップロードは個人アカウントのOAuth資格情報を使用
+    drive_creds = UserCredentials(
+        token=None,
+        refresh_token=DRIVE_REFRESH_TOKEN,
+        client_id=DRIVE_CLIENT_ID,
+        client_secret=DRIVE_CLIENT_SECRET,
+        token_uri="https://oauth2.googleapis.com/token",
+        scopes=["https://www.googleapis.com/auth/drive"],
+    )
+    drive_service = build("drive", "v3", credentials=drive_creds)
 
     sheet = gc.open_by_key(SPREADSHEET_ID).worksheet(SHEET_NAME)
 
     # get_all_records() はヘッダー行に空欄や重複があるとエラーになるため、
     # 生データを取得して必要な列だけを自分で探す
     all_values = sheet.get_all_values()
-    headers = all_values[0]
+    headers = [h.strip() for h in all_values[0]]
     data_rows = all_values[1:]
+
+    required = [COL_MEMBER_NO, COL_TANQ, COL_DISCORD_ID, COL_PHOTO_URL]
+    missing = [c for c in required if c not in headers]
+    if missing:
+        print("以下の見出しがSheetの1行目に見つかりませんでした:", missing)
+        print("Sheet1行目の実際の見出し一覧:", headers)
+        return
 
     col_member_no = headers.index(COL_MEMBER_NO)
     col_tanq = headers.index(COL_TANQ)
