@@ -322,6 +322,7 @@ body {
 }
 .map-wrap:active { cursor: grabbing; }
 .map-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+.map-edges { position: absolute; top: 0; left: 0; pointer-events: none; }
 .map-node {
   position: absolute;
   display: flex;
@@ -525,6 +526,7 @@ body {
     <div class="map-hint">ドラッグで移動　/　スクロールで拡大縮小</div>
     <div class="map-count" id="mapCount"></div>
     <div class="zoom-ctrl">
+      <button class="zoom-btn" id="reformBtn" onclick="reformLayout()" title="表示中のメンバーで再配置" aria-label="再形成" style="font-size:16px;">↻</button>
       <button class="zoom-btn" onclick="zoomIn()" aria-label="拡大">+</button>
       <button class="zoom-btn" onclick="zoomOut()" aria-label="縮小">−</button>
     </div>
@@ -621,6 +623,7 @@ function processMemberRows(rows) {
     }
     return m;
   }).filter(m => m.name);
+  computeOrLoadBaseLayout();
   buildTagFilters();
   applyFilters();
   document.getElementById("headerCount").textContent = allMembers.length + "名";
@@ -734,6 +737,7 @@ function selectTag(el, tag) {
   document.querySelectorAll(".filter-tag").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
   activeTag = tag;
+  currentPositions = {}; // タグ変更時は再形成結果をリセットし、基本配置に戻す
   applyFilters();
 }
  
@@ -834,32 +838,127 @@ function renderCards() {
     grid.appendChild(card);
   });
 }
- 
-// ---- マップ表示 ----
+// ---- マップ表示（タグの共有数に基づくフォースレイアウト） ----
+// 線でつなぐ最低共有タグ数。タグ情報が充実してきたら 2 に変更してOK
+const MIN_SHARED_TAGS = 1;
+
+const NODE_R = 26; // ノード半径相当（衝突防止の基準）
+const MAP_CACHE_KEY = "mapLayoutCache";
+
 let mapScale = 1, mapPanX = 0, mapPanY = 0;
 let mapDragging = false, mapLastX = 0, mapLastY = 0;
-const MAP_W = 1800, MAP_H = 1400;
- 
-function seededRandom(seed) {
-  let s = seed;
-  return function() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+let MAP_W = 1400, MAP_H = 1400;
+let mapInitialized = false;
+let reformInProgress = false;
+
+let basePositions = {};
+let currentPositions = {};
+
+function memberKey(m) { return m.tanq + "|" + m.name; }
+
+function computeMapSize(n) {
+  const side = Math.max(1200, Math.ceil(Math.sqrt(Math.max(n,1)) * 110));
+  return { w: side, h: side };
 }
- 
+
+function buildTagEdges(memberList) {
+  const edges = [];
+  for (let i = 0; i < memberList.length; i++) {
+    for (let j = i+1; j < memberList.length; j++) {
+      const shared = memberList[i].tags.filter(t => memberList[j].tags.includes(t)).length;
+      if (shared >= MIN_SHARED_TAGS) edges.push({ a: i, b: j, weight: shared });
+    }
+  }
+  return edges;
+}
+
+function runForceSimulation(nodesArr, edges, w, h, iterations) {
+  const minDist = NODE_R * 2 + 18;
+  for (let iter = 0; iter < iterations; iter++) {
+    for (let i = 0; i < nodesArr.length; i++) {
+      for (let j = i+1; j < nodesArr.length; j++) {
+        const a = nodesArr[i], b = nodesArr[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        let dist = Math.sqrt(dx*dx + dy*dy) || 0.1;
+        let force = dist < minDist ? (minDist - dist) * 0.6 : (1500 / (dist*dist)) * 4;
+        const fx = (dx/dist) * force, fy = (dy/dist) * force;
+        a.x -= fx; a.y -= fy; b.x += fx; b.y += fy;
+      }
+    }
+    edges.forEach(e => {
+      const a = nodesArr[e.a], b = nodesArr[e.b];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let dist = Math.sqrt(dx*dx + dy*dy) || 0.1;
+      const force = (dist - 110) * 0.01 * e.weight;
+      const fx = (dx/dist) * force, fy = (dy/dist) * force;
+      a.x += fx; a.y += fy; b.x -= fx; b.y -= fy;
+    });
+    nodesArr.forEach(n => {
+      n.x += (w/2 - n.x) * 0.01;
+      n.y += (h/2 - n.y) * 0.01;
+      n.x = Math.max(NODE_R+10, Math.min(w-NODE_R-10, n.x));
+      n.y = Math.max(NODE_R+10, Math.min(h-NODE_R-10, n.y));
+    });
+  }
+}
+
+function computeOrLoadBaseLayout() {
+  const size = computeMapSize(allMembers.length);
+  MAP_W = size.w; MAP_H = size.h;
+
+  const signature = allMembers.map(m => memberKey(m) + ":" + m.tags.join(",")).join(";") + "@" + MAP_W + "x" + MAP_H + "@min" + MIN_SHARED_TAGS;
+
+  let cache = null;
+  try { cache = JSON.parse(localStorage.getItem(MAP_CACHE_KEY)); } catch(e) {}
+
+  if (cache && cache.signature === signature) {
+    basePositions = cache.positions;
+    return;
+  }
+
+  const simNodes = allMembers.map((m, i) => {
+    const angle = (i / Math.max(allMembers.length,1)) * Math.PI * 2;
+    const r = Math.min(MAP_W, MAP_H) * 0.35;
+    return { x: MAP_W/2 + Math.cos(angle)*r, y: MAP_H/2 + Math.sin(angle)*r };
+  });
+  const edges = buildTagEdges(allMembers);
+  runForceSimulation(simNodes, edges, MAP_W, MAP_H, 150);
+
+  basePositions = {};
+  allMembers.forEach((m, i) => {
+    basePositions[memberKey(m)] = { x: simNodes[i].x, y: simNodes[i].y };
+  });
+
+  try {
+    localStorage.setItem(MAP_CACHE_KEY, JSON.stringify({ signature, positions: basePositions }));
+  } catch(e) {}
+}
+
+function getNodePos(m) {
+  const key = memberKey(m);
+  return currentPositions[key] || basePositions[key] || { x: MAP_W/2, y: MAP_H/2 };
+}
+
 function renderMap() {
   const canvas = document.getElementById("mapCanvas");
   canvas.innerHTML = "";
   canvas.style.width = MAP_W + "px";
   canvas.style.height = MAP_H + "px";
-  filteredMembers.forEach((m, i) => {
-    const rng = seededRandom(i * 7919 + 31337);
-    const angle = rng() * Math.PI * 2;
-    const r = 150 + rng() * 550;
-    const x = Math.round(MAP_W/2 + Math.cos(angle) * r);
-    const y = Math.round(MAP_H/2 + Math.sin(angle) * r);
+
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("class", "map-edges");
+  svg.setAttribute("width", MAP_W);
+  svg.setAttribute("height", MAP_H);
+  canvas.appendChild(svg);
+
+  filteredMembers.forEach((m) => {
+    const pos = getNodePos(m);
     const node = document.createElement("div");
     node.className = "map-node";
-    node.style.left = x + "px";
-    node.style.top = y + "px";
+    node.dataset.key = memberKey(m);
+    node.style.left = pos.x + "px";
+    node.style.top = pos.y + "px";
     node.onclick = e => { e.stopPropagation(); openPopup(m); };
     node.appendChild(makeAvatar(m));
     const nameEl = document.createElement("div");
@@ -874,12 +973,79 @@ function renderMap() {
     }
     canvas.appendChild(node);
   });
+
+  redrawEdges();
   document.getElementById("mapCount").textContent = filteredMembers.length + "名";
-  const wrap = document.getElementById("mapWrap");
-  mapScale = 0.5;
-  mapPanX = (wrap.offsetWidth - MAP_W * mapScale) / 2;
-  mapPanY = (wrap.offsetHeight - MAP_H * mapScale) / 2;
-  applyMapTransform();
+
+  if (!mapInitialized) {
+    const wrap = document.getElementById("mapWrap");
+    const scaleX = wrap.offsetWidth / MAP_W;
+    const scaleY = wrap.offsetHeight / MAP_H;
+    mapScale = Math.max(0.2, Math.min(scaleX, scaleY, 0.6));
+    mapPanX = (wrap.offsetWidth - MAP_W * mapScale) / 2;
+    mapPanY = (wrap.offsetHeight - MAP_H * mapScale) / 2;
+    applyMapTransform();
+    mapInitialized = true;
+  }
+}
+
+function redrawEdges() {
+  const svg = document.querySelector(".map-edges");
+  if (!svg) return;
+  svg.innerHTML = "";
+  const edges = buildTagEdges(filteredMembers);
+  const widthMap = { 1: 1, 2: 2.5, 3: 4 };
+  edges.forEach(e => {
+    const pa = getNodePos(filteredMembers[e.a]);
+    const pb = getNodePos(filteredMembers[e.b]);
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("x1", pa.x); line.setAttribute("y1", pa.y);
+    line.setAttribute("x2", pb.x); line.setAttribute("y2", pb.y);
+    line.setAttribute("stroke", "var(--accent-mid)");
+    line.setAttribute("stroke-width", widthMap[Math.min(e.weight,3)]);
+    line.setAttribute("stroke-opacity", "0.5");
+    svg.appendChild(line);
+  });
+}
+
+function reformLayout() {
+  if (reformInProgress || filteredMembers.length < 2) return;
+  reformInProgress = true;
+
+  const startPositions = {};
+  filteredMembers.forEach(m => { startPositions[memberKey(m)] = getNodePos(m); });
+
+  const simNodes = filteredMembers.map((m, i) => {
+    const angle = (i / filteredMembers.length) * Math.PI * 2;
+    const r = Math.min(MAP_W, MAP_H) * 0.3;
+    return { x: MAP_W/2 + Math.cos(angle)*r, y: MAP_H/2 + Math.sin(angle)*r };
+  });
+  const edges = buildTagEdges(filteredMembers);
+  runForceSimulation(simNodes, edges, MAP_W, MAP_H, 200);
+
+  const targetPositions = {};
+  filteredMembers.forEach((m, i) => { targetPositions[memberKey(m)] = { x: simNodes[i].x, y: simNodes[i].y }; });
+
+  const duration = 900;
+  const start = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const ease = 1 - Math.pow(1 - t, 3);
+    filteredMembers.forEach(m => {
+      const key = memberKey(m);
+      const s = startPositions[key], e = targetPositions[key];
+      currentPositions[key] = { x: s.x + (e.x - s.x) * ease, y: s.y + (e.y - s.y) * ease };
+    });
+    const canvas = document.getElementById("mapCanvas");
+    canvas.querySelectorAll(".map-node").forEach(node => {
+      const pos = currentPositions[node.dataset.key];
+      if (pos) { node.style.left = pos.x + "px"; node.style.top = pos.y + "px"; }
+    });
+    redrawEdges();
+    if (t < 1) requestAnimationFrame(step);
+    else reformInProgress = false;
+  }
+  requestAnimationFrame(step);
 }
  
 function applyMapTransform() {
