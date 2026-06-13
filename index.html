@@ -41,6 +41,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCP1ANo82YhaAG
   --tag-bg: #FEF4CC;       /* タグの背景：ペールイエロー */
   --tag-text: #7A5500;     /* タグの文字色：ダークブラウン */
   --map-bg: #FAF0D0;       /* マップ背景：少し濃いクリーム */
+  --edge-line: #6B8FBF;    /* マップ上のタグつながり線：青系 */
   --font-main: 'M PLUS Rounded 1c', sans-serif;
   --font-display: 'M PLUS Rounded 1c', sans-serif;
   --radius: 12px;
@@ -65,8 +66,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCP1ANo82YhaAG
     --tag-bg: #2E2600;
     --tag-text: #F0D060;
     --map-bg: #181400;
-  }
-}
+    --edge-line: #6F94CC;
 :root[data-theme="dark"] {
   --bg: #1E1800;
   --surface: #2A2200;
@@ -80,6 +80,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCP1ANo82YhaAG
   --tag-bg: #2E2600;
   --tag-text: #F0D060;
   --map-bg: #181400;
+  --edge-line: #6F94CC;
 }
 :root[data-theme="light"] {
   --bg: #FDF8EE;
@@ -94,6 +95,7 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCP1ANo82YhaAG
   --tag-bg: #FEF4CC;
   --tag-text: #7A5500;
   --map-bg: #FAF0D0;
+  --edge-line: #6B8FBF;
 }
    
 body {
@@ -978,16 +980,42 @@ function renderMap() {
   document.getElementById("mapCount").textContent = filteredMembers.length + "名";
 
   if (!mapInitialized) {
-    const wrap = document.getElementById("mapWrap");
-    const scaleX = wrap.offsetWidth / MAP_W;
-    const scaleY = wrap.offsetHeight / MAP_H;
-    mapScale = Math.max(0.2, Math.min(scaleX, scaleY, 0.6));
-    mapPanX = (wrap.offsetWidth - MAP_W * mapScale) / 2;
-    mapPanY = (wrap.offsetHeight - MAP_H * mapScale) / 2;
-    applyMapTransform();
+    fitToCluster();
     mapInitialized = true;
   }
 }
+
+// 表示中メンバー群のバウンディングボックス（マップ座標系）を計算
+function getClusterBounds(memberList) {
+  if (!memberList.length) {
+    return { minX:0, maxX:MAP_W, minY:0, maxY:MAP_H, w:MAP_W, h:MAP_H, centerX:MAP_W/2, centerY:MAP_H/2 };
+  }
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  memberList.forEach(m => {
+    const p = getNodePos(m);
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  });
+  const pad = NODE_R + 50; // ノード自体の大きさ分の余白
+  minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+  return { minX, maxX, minY, maxY, w: maxX-minX, h: maxY-minY, centerX: (minX+maxX)/2, centerY: (minY+maxY)/2 };
+}
+
+// メンバー群の中心が画面中央に来るよう、群全体が収まる倍率に調整
+function fitToCluster() {
+  const wrap = document.getElementById("mapWrap");
+  const b = getClusterBounds(filteredMembers);
+  const scaleX = wrap.offsetWidth / b.w;
+  const scaleY = wrap.offsetHeight / b.h;
+  mapScale = Math.max(0.15, Math.min(scaleX, scaleY, 1));
+  mapPanX = wrap.offsetWidth/2 - b.centerX * mapScale;
+  mapPanY = wrap.offsetHeight/2 - b.centerY * mapScale;
+  applyMapTransform();
+}
+
+// .map-node はアバター＋名前＋タグを縦に並べたブロック全体の中心で位置決めされるため、
+// アバターの中心は中心点よりやや上にある。線の接続点をアバター中心に合わせるための補正値。
+const EDGE_Y_OFFSET = -20;
 
 function redrawEdges() {
   const svg = document.querySelector(".map-edges");
@@ -999,11 +1027,11 @@ function redrawEdges() {
     const pa = getNodePos(filteredMembers[e.a]);
     const pb = getNodePos(filteredMembers[e.b]);
     const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    line.setAttribute("x1", pa.x); line.setAttribute("y1", pa.y);
-    line.setAttribute("x2", pb.x); line.setAttribute("y2", pb.y);
-    line.setAttribute("stroke", "var(--accent-mid)");
+    line.setAttribute("x1", pa.x); line.setAttribute("y1", pa.y + EDGE_Y_OFFSET);
+    line.setAttribute("x2", pb.x); line.setAttribute("y2", pb.y + EDGE_Y_OFFSET);
+    line.setAttribute("stroke", "var(--edge-line)");
     line.setAttribute("stroke-width", widthMap[Math.min(e.weight,3)]);
-    line.setAttribute("stroke-opacity", "0.5");
+    line.setAttribute("stroke-opacity", "0.55");
     svg.appendChild(line);
   });
 }
@@ -1051,8 +1079,18 @@ function reformLayout() {
 function applyMapTransform() {
   document.getElementById("mapCanvas").style.transform = `translate(${mapPanX}px,${mapPanY}px) scale(${mapScale})`;
 }
-function zoomIn()  { mapScale = Math.min(mapScale * 1.2, 3);  applyMapTransform(); }
-function zoomOut() { mapScale = Math.max(mapScale / 1.2, 0.2); applyMapTransform(); }
+// メンバー群の中心を基準に拡大・縮小する（+/-ボタン用）
+function zoomAtClusterCenter(factor) {
+  const b = getClusterBounds(filteredMembers);
+  const oldScale = mapScale;
+  const newScale = Math.max(0.15, Math.min(3, oldScale * factor));
+  mapPanX += b.centerX * (oldScale - newScale);
+  mapPanY += b.centerY * (oldScale - newScale);
+  mapScale = newScale;
+  applyMapTransform();
+}
+function zoomIn()  { zoomAtClusterCenter(1.2); }
+function zoomOut() { zoomAtClusterCenter(1/1.2); }
  
 const mapWrap = document.getElementById("mapWrap");
 mapWrap.addEventListener("wheel", e => {
