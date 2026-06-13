@@ -518,15 +518,12 @@ body {
       <button class="tab-btn" id="tabMap" onclick="switchTab('map')">◎ マップ</button>
     </div>
   </div>
+  <div class="filter-label">所在地タグ</div>
+  <div class="tag-row" id="locRegionRow"></div>
+  <div class="tag-row" id="locPrefRow"></div>
   <div class="filter-label">探究タグ</div>
   <div class="tag-row" id="tagRow">
     <button class="filter-tag active" onclick="selectTag(this,'すべて')">すべて</button>
-  </div>
-  <div class="filter-label">所在地タグ（地方区分）</div>
-  <div class="tag-row" id="locRegionRow"></div>
-  <div class="filter-label">所在地タグ</div>
-  <div class="tag-row" id="locTagRow">
-    <button class="filter-tag active" onclick="selectLocTag(this, {type:'all'})">すべて</button>
   </div>
 </div>
 
@@ -796,33 +793,44 @@ function buildLocFilters() {
     regionRow.appendChild(btn);
   });
 
-  // 所在地タグ（実際にSheetへ入力されている表記をそのまま表示）
-  const allLocTags = [...new Set(allMembers.flatMap(m => m.locTags))].sort();
-  const tagRow = document.getElementById("locTagRow");
-  tagRow.innerHTML = `<button class="filter-tag active" onclick="selectLocFilter(this, {type:'all'})">すべて</button>`;
-  allLocTags.forEach(tag => {
+  // 所在地タグの個別候補は、地方区分を選んだときだけ下に表示する
+  document.getElementById("locPrefRow").innerHTML = "";
+}
+
+// 選択した地方区分内に実在する所在地タグのボタンを表示する
+function buildLocPrefRow(region) {
+  const prefRow = document.getElementById("locPrefRow");
+  const tagsInRegion = [...new Set(
+    allMembers.flatMap(m => m.locTags).filter(t => getRegion(t) === region)
+  )].sort();
+
+  prefRow.innerHTML = `<button class="filter-tag active" onclick="selectLocFilter(this, {type:'region', value:'${region}'})">${region}</button>`;
+  tagsInRegion.forEach(tag => {
     const btn = document.createElement("button");
     btn.className = "filter-tag";
     btn.textContent = tag;
     btn.onclick = function(){ selectLocFilter(this, {type:'pref', value:tag}); };
-    tagRow.appendChild(btn);
+    prefRow.appendChild(btn);
   });
 }
 
-// 地方区分・所在地タグのどちらかを選択（もう一方は「すべて」表示に揃える）
+// 地方区分 / 所在地タグの選択
 function selectLocFilter(el, filter) {
-  document.querySelectorAll("#locRegionRow .filter-tag, #locTagRow .filter-tag").forEach(b => b.classList.remove("active"));
-  el.classList.add("active");
   if (filter.type === "all") {
+    document.querySelectorAll("#locRegionRow .filter-tag").forEach(b => b.classList.remove("active"));
     document.querySelector("#locRegionRow .filter-tag").classList.add("active");
-    document.querySelector("#locTagRow .filter-tag").classList.add("active");
-  } else {
-    // 選択していない側は先頭の「すべて」をアクティブ表示にしておく
-    if (filter.type === "region") {
-      document.querySelector("#locTagRow .filter-tag").classList.add("active");
-    } else {
-      document.querySelector("#locRegionRow .filter-tag").classList.add("active");
-    }
+    document.getElementById("locPrefRow").innerHTML = "";
+  } else if (filter.type === "region") {
+    document.querySelectorAll("#locRegionRow .filter-tag").forEach(b => b.classList.remove("active"));
+    // 地方区分ボタンをクリックした場合のみ active を付与（サブ行内の地方ボタンでは付けない）
+    document.querySelectorAll("#locRegionRow .filter-tag").forEach(b => {
+      if (b.textContent === filter.value) b.classList.add("active");
+    });
+    buildLocPrefRow(filter.value);
+  } else if (filter.type === "pref") {
+    // 所在地タグ選択時：地方ボタンのactiveはそのまま（サブ行内のactiveだけ切り替え）
+    document.querySelectorAll("#locPrefRow .filter-tag").forEach(b => b.classList.remove("active"));
+    el.classList.add("active");
   }
   activeLocFilter = filter;
   currentPositions = {};
