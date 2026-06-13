@@ -584,6 +584,7 @@ const FIELD_MAP = {
   "皆へ一言":  "msg",
   "探究タグ":  "tags",
   "写真URL":  "photo",
+  "休会？":   "onLeave",
 };
 
 let allMembers = [];
@@ -662,7 +663,7 @@ function processMemberRows(rows) {
     // 居住地は「・」区切りで複数登録できる（探究タグと同じ書式）
     m.locTags = m.loc.split("・").map(t=>t.trim()).filter(Boolean);
     return m;
-  }).filter(m => m.name);
+  }).filter(m => m.name && m.onLeave !== "〇");
   computeOrLoadBaseLayout();
   buildTagFilters();
   applyFilters();
@@ -1088,8 +1089,11 @@ function renderMap() {
   document.getElementById("mapCount").textContent = filteredMembers.length + "名";
 
   if (!mapInitialized) {
-    fitToCluster();
-    mapInitialized = true;
+    const wrap = document.getElementById("mapWrap");
+    if (wrap.offsetWidth > 0 && wrap.offsetHeight > 0) {
+      fitToCluster();
+      mapInitialized = true;
+    }
   }
 }
 
@@ -1236,6 +1240,12 @@ function switchTab(tab) {
   document.getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
   document.getElementById("view" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add("active");
   localStorage.setItem("activeTab", tab);
+
+  // マップタブが表示された時点で、まだ中心合わせができていなければ実施する
+  if (tab === "map" && !mapInitialized) {
+    fitToCluster();
+    mapInitialized = true;
+  }
 }
  
 // ---- ドロップダウンを外クリックで閉じる ----
