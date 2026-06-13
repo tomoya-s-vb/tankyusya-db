@@ -246,6 +246,11 @@ body {
 
 /* ---- Tag filters ---- */
 .tag-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
 .filter-tag {
   height: 26px;
   padding: 0 10px;
@@ -513,8 +518,15 @@ body {
       <button class="tab-btn" id="tabMap" onclick="switchTab('map')">◎ マップ</button>
     </div>
   </div>
+  <div class="filter-label">探究タグ</div>
   <div class="tag-row" id="tagRow">
     <button class="filter-tag active" onclick="selectTag(this,'すべて')">すべて</button>
+  </div>
+  <div class="filter-label">所在地タグ（地方区分）</div>
+  <div class="tag-row" id="locRegionRow"></div>
+  <div class="filter-label">所在地タグ</div>
+  <div class="tag-row" id="locTagRow">
+    <button class="filter-tag active" onclick="selectLocTag(this, {type:'all'})">すべて</button>
   </div>
 </div>
 
@@ -573,15 +585,40 @@ const FIELD_MAP = {
   "趣味・特技・好きなこと": "hobby",
   "探究したいこと・やってみたいこと": "tankyuu",
   "皆へ一言":  "msg",
-  "タグ":     "tags",
+  "探究タグ":  "tags",
   "写真URL":  "photo",
 };
 
 let allMembers = [];
 let activeTag = "すべて";
+let activeLocFilter = { type: "all" }; // { type: "all" } | { type: "pref", value } | { type: "region", value }
 let filteredMembers = [];
 let sortKey = "joined";
 let sortDir = "desc";
+
+// ---- 都道府県 → 地方区分 ----
+// 「東京都」「東京」どちらの表記でも一致するように、末尾の都/府/県を除いた形も登録する
+const REGION_GROUPS = {
+  "北海道・東北地方": ["北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県"],
+  "関東地方":        ["茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県"],
+  "中部地方":        ["新潟県","富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県"],
+  "近畿地方":        ["三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県"],
+  "中国地方":        ["鳥取県","島根県","岡山県","広島県","山口県"],
+  "四国地方":        ["徳島県","香川県","愛媛県","高知県"],
+  "九州・沖縄地方":   ["福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"],
+};
+const PREF_TO_REGION = {};
+Object.entries(REGION_GROUPS).forEach(([region, prefs]) => {
+  prefs.forEach(pref => {
+    PREF_TO_REGION[pref] = region;
+    const short = pref.replace(/(都|府|県)$/, ""); // 東京都→東京、大阪府→大阪 など
+    if (short !== pref) PREF_TO_REGION[short] = region;
+  });
+});
+// 都道府県名・地域名のいずれにも一致しない場合は「海外」とみなす
+function getRegion(locTag) {
+  return PREF_TO_REGION[locTag] || "海外";
+}
 
 // ---- データ取得 ----
 const MEMBER_CACHE_KEY = "memberDirectoryCache";
@@ -625,6 +662,8 @@ function processMemberRows(rows) {
         m[enKey] = val;
       }
     }
+    // 居住地は「・」区切りで複数登録できる（探究タグと同じ書式）
+    m.locTags = m.loc.split("・").map(t=>t.trim()).filter(Boolean);
     return m;
   }).filter(m => m.name);
   computeOrLoadBaseLayout();
@@ -735,10 +774,63 @@ function buildTagFilters() {
     btn.onclick = function(){ selectTag(this, tag); };
     row.appendChild(btn);
   });
+
+  buildLocFilters();
 }
- 
+
+// ---- 所在地タグ・地方区分フィルター構築 ----
+function buildLocFilters() {
+  // 地方区分（実際にメンバーがいる地方のみ表示）
+  const usedRegions = new Set();
+  allMembers.forEach(m => m.locTags.forEach(t => usedRegions.add(getRegion(t))));
+  const regionOrder = [...Object.keys(REGION_GROUPS), "海外"];
+
+  const regionRow = document.getElementById("locRegionRow");
+  regionRow.innerHTML = `<button class="filter-tag active" onclick="selectLocFilter(this, {type:'all'})">すべて</button>`;
+  regionOrder.forEach(region => {
+    if (!usedRegions.has(region)) return;
+    const btn = document.createElement("button");
+    btn.className = "filter-tag";
+    btn.textContent = region;
+    btn.onclick = function(){ selectLocFilter(this, {type:'region', value:region}); };
+    regionRow.appendChild(btn);
+  });
+
+  // 所在地タグ（実際にSheetへ入力されている表記をそのまま表示）
+  const allLocTags = [...new Set(allMembers.flatMap(m => m.locTags))].sort();
+  const tagRow = document.getElementById("locTagRow");
+  tagRow.innerHTML = `<button class="filter-tag active" onclick="selectLocFilter(this, {type:'all'})">すべて</button>`;
+  allLocTags.forEach(tag => {
+    const btn = document.createElement("button");
+    btn.className = "filter-tag";
+    btn.textContent = tag;
+    btn.onclick = function(){ selectLocFilter(this, {type:'pref', value:tag}); };
+    tagRow.appendChild(btn);
+  });
+}
+
+// 地方区分・所在地タグのどちらかを選択（もう一方は「すべて」表示に揃える）
+function selectLocFilter(el, filter) {
+  document.querySelectorAll("#locRegionRow .filter-tag, #locTagRow .filter-tag").forEach(b => b.classList.remove("active"));
+  el.classList.add("active");
+  if (filter.type === "all") {
+    document.querySelector("#locRegionRow .filter-tag").classList.add("active");
+    document.querySelector("#locTagRow .filter-tag").classList.add("active");
+  } else {
+    // 選択していない側は先頭の「すべて」をアクティブ表示にしておく
+    if (filter.type === "region") {
+      document.querySelector("#locTagRow .filter-tag").classList.add("active");
+    } else {
+      document.querySelector("#locRegionRow .filter-tag").classList.add("active");
+    }
+  }
+  activeLocFilter = filter;
+  currentPositions = {};
+  applyFilters();
+}
+
 function selectTag(el, tag) {
-  document.querySelectorAll(".filter-tag").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("#tagRow .filter-tag").forEach(b => b.classList.remove("active"));
   el.classList.add("active");
   activeTag = tag;
   currentPositions = {}; // タグ変更時は再形成結果をリセットし、基本配置に戻す
@@ -792,8 +884,14 @@ function applyFilters() {
   const q = document.getElementById("searchInput").value.toLowerCase();
   filteredMembers = allMembers.filter(m => {
     const matchTag = activeTag === "すべて" || m.tags.includes(activeTag);
-    const matchSearch = !q || m.name.includes(q) || m.tanq.includes(q) || m.tags.some(t=>t.includes(q)) || m.work.includes(q) || m.hobby.includes(q);
-    return matchTag && matchSearch;
+    let matchLoc = true;
+    if (activeLocFilter.type === "region") {
+      matchLoc = m.locTags.some(t => getRegion(t) === activeLocFilter.value);
+    } else if (activeLocFilter.type === "pref") {
+      matchLoc = m.locTags.includes(activeLocFilter.value);
+    }
+    const matchSearch = !q || m.name.includes(q) || m.tanq.includes(q) || m.tags.some(t=>t.includes(q)) || m.locTags.some(t=>t.includes(q)) || m.work.includes(q) || m.hobby.includes(q);
+    return matchTag && matchLoc && matchSearch;
   });
   filteredMembers = sortMembers(filteredMembers);
   renderCards();
