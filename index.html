@@ -493,6 +493,7 @@ body {
   </div>
   <div style="display:flex;align-items:center;gap:10px;">
     <span class="header-count" id="headerCount">読み込み中…</span>
+    <button class="theme-toggle" id="refreshBtn" onclick="clearCacheAndReload()" title="データを最新に更新">🔄</button>
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="ライト/ダーク切り替え">🌙</button>
   </div>
 </header>
@@ -1306,6 +1307,17 @@ function openPopup(m) {
 function closePopup() { document.getElementById("overlay").classList.remove("show"); }
 function handleOverlayClick(e) { if(e.target===document.getElementById("overlay")) closePopup(); }
  
+// ---- キャッシュクリア＆再読み込み ----
+function clearCacheAndReload() {
+  localStorage.removeItem(MEMBER_CACHE_KEY);
+  localStorage.removeItem(MAP_CACHE_KEY);
+  mapInitialized = false;
+  basePositions = {};
+  currentPositions = {};
+  document.getElementById("headerCount").textContent = "読み込み中…";
+  fetchData();
+}
+
 // ---- テーマ切り替え ----
 function getSystemTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
