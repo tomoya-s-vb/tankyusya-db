@@ -446,7 +446,7 @@ body {
 .popup-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 1rem; }
 .popup-tag { font-size: 11px; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--tag-bg); color: var(--tag-text); }
 .popup-section { margin-bottom: 0.75rem; }
-.popup-label { font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 2px; text-transform: uppercase; }
+.popup-label { font-size: 10px; color: var(--accent); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 2px; text-transform: uppercase; }
 .popup-value { font-size: 13px; color: var(--text); line-height: 1.6; }
 .popup-sns { display: flex; gap: 8px; flex-wrap: wrap; }
 .sns-link { font-size: 12px; color: var(--accent); text-decoration: none; border: 1px solid var(--accent-mid); padding: 3px 9px; border-radius: var(--radius-pill); }
@@ -556,13 +556,13 @@ body {
         <div class="popup-tanq" id="pTanq"></div>
       </div>
     </div>
-    <div class="popup-tags" id="pTags"></div>
     <div class="popup-section"><div class="popup-label">入会日</div><div class="popup-value" id="pJoined"></div></div>
     <div class="popup-section"><div class="popup-label">居住地 / 誕生日 / MBTI</div><div class="popup-value" id="pBasic"></div></div>
     <div class="popup-section"><div class="popup-label">職業・取組</div><div class="popup-value" id="pWork"></div></div>
     <div class="popup-section"><div class="popup-label">趣味・好きなこと</div><div class="popup-value" id="pHobby"></div></div>
     <div class="popup-section"><div class="popup-label">探究したいこと</div><div class="popup-value" id="pTankyuu"></div></div>
     <div class="popup-section"><div class="popup-label">皆へ一言</div><div class="popup-value" id="pMsg"></div></div>
+    <div class="popup-section"><div class="popup-label">探究タグ</div><div class="popup-tags" id="pInterestTags"></div></div>
     <div class="popup-section"><div class="popup-label">SNS</div><div class="popup-sns" id="pSns"></div></div>
   </div>
 </div>
@@ -684,14 +684,14 @@ function formatDate(val) {
   let match = val.match(/Date\((\d+),(\d+),(\d+)\)/);
   if (match) {
     const y = match[1];
-    const m = String(Number(match[2]) + 1).padStart(2, "0");
-    const d = String(match[3]).padStart(2, "0");
+    const m = Number(match[2]) + 1;
+    const d = Number(match[3]);
     return `${y}年${m}月${d}日`;
   }
   // Apps Scriptが返す YYYY-MM-DD 形式
   match = val.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
   if (match) {
-    return `${match[1]}年${match[2].padStart(2,"0")}月${match[3].padStart(2,"0")}日`;
+    return `${match[1]}年${Number(match[2])}月${Number(match[3])}日`;
   }
   return val;
 }
@@ -729,7 +729,7 @@ function parseBirthdayMD(val) {
 function formatBirthday(val) {
   const md = parseBirthdayMD(val);
   if (!md) return "非公開";
-  return `${String(md.m).padStart(2,"0")}月${String(md.d).padStart(2,"0")}日`;
+  return `${md.m}月${md.d}日`;
 }
 
 // ---- 誕生日を「月日」のみの数値に変換（並び替え用） ----
@@ -1252,7 +1252,7 @@ function openPopup(m) {
   pAvatar.appendChild(makeAvatar(m, "popup-avatar"));
   document.getElementById("pName").textContent = m.tanq;
   document.getElementById("pTanq").textContent = "本名：" + m.name;
-  document.getElementById("pTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
+  document.getElementById("pInterestTags").innerHTML = m.tags.map(t=>`<span class="popup-tag">${t}</span>`).join("");
   document.getElementById("pJoined").textContent = formatDate(m.joined);
   document.getElementById("pBasic").textContent = [m.loc, formatBirthday(m.birthday), m.mbti].filter(Boolean).join("　/　");
   document.getElementById("pWork").textContent = m.work;
