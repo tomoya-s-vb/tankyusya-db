@@ -619,7 +619,11 @@ Object.entries(REGION_GROUPS).forEach(([region, prefs]) => {
 });
 // 都道府県名・地域名のいずれにも一致しない場合は「海外」とみなす
 function getRegion(locTag) {
-  return PREF_TO_REGION[locTag] || "海外";
+  // 都道府県名 → 地方区分の変換
+  if (PREF_TO_REGION[locTag]) return PREF_TO_REGION[locTag];
+  // 地方名そのものが入力されていた場合（例：「近畿地方」「関東地方」）はそのまま返す
+  if (REGION_GROUPS[locTag]) return locTag;
+  return "海外";
 }
 
 // ---- データ取得 ----
