@@ -442,6 +442,22 @@ body {
   font-size: 20px;
   line-height: 1;
 }
+.popup-copy-img {
+  position: absolute;
+  top: 12px;
+  right: 44px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.popup-copy-img:hover { background: var(--accent-light); border-color: var(--accent-mid); color: var(--accent); }
+.popup-copy-img.copied { background: var(--accent-light); border-color: var(--accent-mid); color: var(--accent); }
 .popup-header { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
 .popup-avatar { width: 52px; height: 52px; font-size: 16px; flex-shrink: 0; }
 .popup-name { font-size: 16px; font-weight: 700; color: var(--text); }
@@ -553,6 +569,7 @@ body {
 <div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
   <div class="popup" id="popup">
     <button class="popup-close" onclick="closePopup()" aria-label="閉じる">×</button>
+    <button class="popup-copy-img" id="copyImgBtn" onclick="copyMemberImage()" title="アイコン画像をコピー" aria-label="画像をコピー">📋</button>
     <div class="popup-header">
       <div class="avatar popup-avatar" id="pAvatar"></div>
       <div>
@@ -1290,7 +1307,67 @@ document.addEventListener("click", e => {
 });
  
 // ---- ポップアップ ----
+// 現在ポップアップに表示中のメンバーの画像URL
+let currentMemberPhoto = "";
+
+// アイコン画像をクリップボードにコピーする
+// ・成功した場合：画像データをクリップボードにコピー
+// ・失敗した場合（ブラウザ制限など）：画像を新しいタブで開く
+async function copyMemberImage() {
+  const btn = document.getElementById("copyImgBtn");
+  if (!currentMemberPhoto) {
+    btn.textContent = "❌";
+    setTimeout(() => { btn.textContent = "📋"; }, 1500);
+    return;
+  }
+  try {
+    // 画像をfetchして Blob に変換
+    const res = await fetch(currentMemberPhoto);
+    if (!res.ok) throw new Error("fetch failed");
+    const blob = await res.blob();
+    // PNG以外はCanvaに貼れない場合があるので変換する
+    const pngBlob = await convertToPng(blob);
+    await navigator.clipboard.write([
+      new ClipboardItem({ "image/png": pngBlob })
+    ]);
+    btn.textContent = "✅";
+    btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "📋"; btn.classList.remove("copied"); }, 2000);
+  } catch (e) {
+    // コピーに失敗した場合は新しいタブで画像を開く
+    window.open(currentMemberPhoto, "_blank");
+    btn.textContent = "🔗";
+    setTimeout(() => { btn.textContent = "📋"; }, 2000);
+  }
+}
+
+// 画像BlobをPNG形式に変換する（ClipboardAPI対応のため）
+function convertToPng(blob) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error("toBlob failed")), "image/png");
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("load failed")); };
+    img.src = url;
+  });
+}
+
 function openPopup(m) {
+  // 画像コピーボタンの状態をリセット
+  currentMemberPhoto = m.photo || "";
+  const copyBtn = document.getElementById("copyImgBtn");
+  copyBtn.textContent = "📋";
+  copyBtn.classList.remove("copied");
+  // 写真がない場合はボタンを非表示
+  copyBtn.style.display = currentMemberPhoto ? "" : "none";
+
   const pAvatar = document.getElementById("pAvatar");
   pAvatar.innerHTML = "";
   pAvatar.appendChild(makeAvatar(m, "popup-avatar"));
